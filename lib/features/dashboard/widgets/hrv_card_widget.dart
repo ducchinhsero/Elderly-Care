@@ -1,0 +1,93 @@
+import 'package:flutter/material.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_strings.dart';
+
+/// Card hiển thị RMSSD (HRV) với icon tim
+class HrvCardWidget extends StatelessWidget {
+  final double rmssd;
+  final String rmssdNormal;
+
+  const HrvCardWidget({
+    super.key,
+    required this.rmssd,
+    required this.rmssdNormal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.critical.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.monitor_heart,
+                    size: 18,
+                    color: AppColors.critical,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  AppStrings.rmssd,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: rmssd > 0
+                        ? rmssd.toStringAsFixed(1)
+                        : '--',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: _getColor(),
+                    ),
+                  ),
+                  TextSpan(
+                    text: ' ms',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (rmssdNormal.isNotEmpty)
+              Text(
+                rmssdNormal,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textHint,
+                  fontSize: 10,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getColor() {
+    if (rmssd <= 0) return AppColors.textHint;
+    if (rmssd < 15) return AppColors.alert;
+    if (rmssd < 20) return AppColors.watch;
+    if (rmssd < 50) return AppColors.safe;
+    return AppColors.calm;
+  }
+}
