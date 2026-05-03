@@ -106,7 +106,7 @@ class ElderHealthApp extends StatelessWidget {
         elevation: 2,
         height: 72,
         backgroundColor: AppColors.surfaceLight,
-        indicatorColor: AppColors.primary.withOpacity(0.12),
+        indicatorColor: AppColors.primary.withValues(alpha: 0.12),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary);
@@ -163,7 +163,7 @@ class ElderHealthApp extends StatelessWidget {
         elevation: 2,
         height: 72,
         backgroundColor: AppColors.surfaceDark,
-        indicatorColor: AppColors.primary.withOpacity(0.2),
+        indicatorColor: AppColors.primary.withValues(alpha: 0.2),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryLight);

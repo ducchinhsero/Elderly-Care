@@ -105,7 +105,7 @@ class _TimeChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.primary.withOpacity(0.08),
+          color: selected ? AppColors.primary : AppColors.primary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: selected ? Colors.white : AppColors.primary)),
@@ -278,7 +278,7 @@ class _EmotionBar extends StatelessWidget {
         const SizedBox(height: 4),
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(value: percent / 100, backgroundColor: color.withOpacity(0.15), color: color, minHeight: 8),
+          child: LinearProgressIndicator(value: percent / 100, backgroundColor: color.withValues(alpha: 0.15), color: color, minHeight: 8),
         ),
       ],
     );
@@ -336,7 +336,7 @@ class _ActivityRow extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
           child: Icon(icon, size: 20, color: color),
         ),
         const SizedBox(width: 12),

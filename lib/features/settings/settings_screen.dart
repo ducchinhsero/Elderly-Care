@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/vitals_provider.dart';
-import '../../core/providers/alerts_provider.dart';
 import 'widgets/alert_threshold_widget.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -228,10 +227,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
 
-    if (confirmed == true && mounted) {
+    if (confirmed == true && context.mounted) {
       final storage = ref.read(storageServiceProvider);
       await storage.setOnboardingCompleted(false);
-      if (mounted) context.go('/role-selection');
+      if (context.mounted) context.go('/role-selection');
     }
   }
 }

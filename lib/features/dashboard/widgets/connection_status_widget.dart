@@ -92,7 +92,7 @@ class ConnectionStatusWidget extends ConsumerWidget {
             width: 8, height: 8,
             decoration: BoxDecoration(
               shape: BoxShape.circle, color: color,
-              boxShadow: [BoxShadow(color: color.withOpacity(0.4), blurRadius: 4, spreadRadius: 1)],
+              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 4, spreadRadius: 1)],
             ),
           ),
           const SizedBox(width: 6),

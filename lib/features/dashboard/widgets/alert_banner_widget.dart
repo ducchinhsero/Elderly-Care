@@ -33,7 +33,7 @@ class AlertBannerWidget extends StatelessWidget {
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
           width: isCritical ? 2 : 1,
         ),
       ),
@@ -43,7 +43,7 @@ class AlertBannerWidget extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -72,7 +72,7 @@ class AlertBannerWidget extends StatelessWidget {
                     AppStrings.alertTypeTitle(firstAlert.type),
                     style: TextStyle(
                       fontSize: 12,
-                      color: darkColor.withOpacity(0.8),
+                      color: darkColor.withValues(alpha: 0.8),
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
