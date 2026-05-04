@@ -7,6 +7,8 @@ import 'core/constants/app_strings.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/providers/vitals_provider.dart';
+import 'core/providers/user_provider.dart';
+import 'core/repositories/user_profile_repository.dart';
 import 'router/app_router.dart';
 
 void main() async {
@@ -26,11 +28,16 @@ void main() async {
   // Kiểm tra đã onboarding chưa
   final onboardingCompleted = storageService.onboardingCompleted;
 
+  // Khởi tạo Isar repository
+  final userProfileRepo = UserProfileRepository();
+  await userProfileRepo.init();
+
   runApp(
     ProviderScope(
       overrides: [
         // Dùng instance đã init() thay vì tạo mới
         storageServiceProvider.overrideWithValue(storageService),
+        userProfileRepositoryProvider.overrideWithValue(userProfileRepo),
       ],
       child: ElderHealthApp(
         storageService: storageService,

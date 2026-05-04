@@ -5,12 +5,22 @@ import '../../../core/models/user_profile.dart';
 
 /// Widget hiển thị trạng thái calibration + nút calibrate
 class CalibrationWidget extends StatelessWidget {
-  final CalibrationStatus? calibration;
+  final bool isCalibrated;
+  final DateTime? lastCalibratedAt;
+  final bool needsRecalibration;
   final bool isCalibrating;
   final int secondsRemaining;
   final VoidCallback? onCalibrate;
 
-  const CalibrationWidget({super.key, this.calibration, this.isCalibrating = false, this.secondsRemaining = 0, this.onCalibrate});
+  const CalibrationWidget({
+    super.key, 
+    this.isCalibrated = false, 
+    this.lastCalibratedAt,
+    this.needsRecalibration = false,
+    this.isCalibrating = false, 
+    this.secondsRemaining = 0, 
+    this.onCalibrate
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -41,9 +51,9 @@ class CalibrationWidget extends StatelessWidget {
               ),
             ),
 
-            if (calibration?.calibratedAt != null) ...[
+            if (lastCalibratedAt != null) ...[
               const SizedBox(height: 8),
-              Text('Ngày: ${calibration!.calibratedAt.toString().substring(0, 16)}',
+              Text('Ngày: ${lastCalibratedAt!.toString().substring(0, 16)}',
                 style: TextStyle(fontSize: 12, color: AppColors.textHint)),
             ],
 
@@ -71,20 +81,20 @@ class CalibrationWidget extends StatelessWidget {
   }
 
   Color _statusColor() {
-    if (calibration == null || !calibration!.isCalibrated) return AppColors.watch;
-    if (calibration!.isExpired || calibration!.needsRecalibration) return AppColors.alert;
+    if (!isCalibrated) return AppColors.watch;
+    if (needsRecalibration) return AppColors.alert;
     return AppColors.safe;
   }
 
   IconData _statusIcon() {
-    if (calibration == null || !calibration!.isCalibrated) return Icons.info_outline;
-    if (calibration!.isExpired || calibration!.needsRecalibration) return Icons.refresh;
+    if (!isCalibrated) return Icons.info_outline;
+    if (needsRecalibration) return Icons.refresh;
     return Icons.check_circle;
   }
 
   String _statusText() {
-    if (calibration == null || !calibration!.isCalibrated) return AppStrings.notCalibrated;
-    if (calibration!.isExpired || calibration!.needsRecalibration) return AppStrings.needRecalibrate;
+    if (!isCalibrated) return AppStrings.notCalibrated;
+    if (needsRecalibration) return AppStrings.needRecalibrate;
     return AppStrings.calibrated;
   }
 

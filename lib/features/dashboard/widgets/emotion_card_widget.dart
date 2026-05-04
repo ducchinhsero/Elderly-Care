@@ -1,86 +1,94 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_strings.dart';
 
-/// Card hiển thị cảm xúc (calm/stressed/positive)
 class EmotionCardWidget extends StatelessWidget {
-  final String emotion;
-  final double confidence;
+  final String emotion; // 'Calm', 'Stressed', 'Positive', 'Unknown'
+  final String activityLevel;
+  final bool hasEnoughData;
+  final VoidCallback onTap;
 
   const EmotionCardWidget({
     super.key,
     required this.emotion,
-    required this.confidence,
+    required this.activityLevel,
+    required this.hasEnoughData,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = AppColors.fromEmotion(emotion);
-    final text = AppStrings.emotionText(emotion);
-    final icon = _getIcon();
-    final confPercent = (confidence * 100).toStringAsFixed(0);
+    final bool isResting = activityLevel == 'REST' || activityLevel == 'SLOW_WALK';
 
-    return Card(
-      child: Padding(
+    String title = 'Trạng thái cảm xúc';
+    String description;
+    IconData icon;
+    Color color;
+
+    if (!isResting) {
+      description = 'Đang vận động — không đánh giá';
+      icon = Icons.directions_run;
+      color = AppColors.textHint;
+    } else if (!hasEnoughData) {
+      description = 'Đang thu thập dữ liệu... (cần 5 phút nghỉ ngơi)';
+      icon = Icons.hourglass_empty;
+      color = AppColors.textHint;
+    } else {
+      switch (emotion) {
+        case 'Stressed':
+          description = 'Căng thẳng';
+          icon = Icons.bolt;
+          color = AppColors.alert;
+          break;
+        case 'Positive':
+          description = 'Tích cực / Phấn chấn';
+          icon = Icons.sentiment_very_satisfied;
+          color = AppColors.safe;
+          break;
+        case 'Calm':
+        default:
+          description = 'Bình tĩnh / Thư giãn';
+          icon = Icons.self_improvement;
+          color = AppColors.primary;
+          break;
+      }
+    }
+
+    return InkWell(
+      onTap: isResting && hasEnoughData ? onTap : null,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 18,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  AppStrings.emotion,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 28),
             ),
-            const SizedBox(height: 8),
-            Text(
-              text,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: color,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                  const SizedBox(height: 4),
+                  Text(description, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color == AppColors.textHint ? AppColors.textPrimary : color)),
+                ],
               ),
             ),
-            Text(
-              'Độ tin cậy: $confPercent%',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textHint,
-                fontSize: 11,
-              ),
-            ),
+            if (isResting && hasEnoughData)
+              const Icon(Icons.info_outline, color: AppColors.textHint, size: 20),
           ],
         ),
       ),
     );
-  }
-
-  IconData _getIcon() {
-    switch (emotion.toLowerCase()) {
-      case 'calm':
-        return Icons.sentiment_satisfied;
-      case 'stressed':
-        return Icons.sentiment_very_dissatisfied;
-      case 'positive':
-        return Icons.sentiment_very_satisfied;
-      default:
-        return Icons.sentiment_neutral;
-    }
   }
 }

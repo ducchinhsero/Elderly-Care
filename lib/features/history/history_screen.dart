@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/history_provider.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'widgets/hr_chart_widget.dart';
 import 'widgets/hrv_trend_widget.dart';
 
@@ -19,7 +20,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -57,6 +58,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> with SingleTicker
                 controller: _tabController,
                 tabs: const [
                   Tab(text: AppStrings.tabHeartRate),
+                  Tab(text: 'Phân bố nhịp'),
                   Tab(text: AppStrings.tabHRV),
                   Tab(text: AppStrings.tabEmotion),
                   Tab(text: AppStrings.tabActivity),
@@ -72,6 +74,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> with SingleTicker
               controller: _tabController,
               children: [
                 HrChartWidget(history: historyState.historyData),
+                _BeatDistributionTab(history: historyState.historyData),
                 HrvTrendWidget(history: historyState.historyData),
                 _EmotionTab(history: historyState.historyData),
                 _ActivityTab(history: historyState.historyData),
@@ -107,6 +110,107 @@ class _TimeChip extends StatelessWidget {
         ),
         child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: selected ? Colors.white : AppColors.primary)),
       ),
+    );
+  }
+}
+
+class _BeatDistributionTab extends StatelessWidget {
+  final dynamic history;
+  const _BeatDistributionTab({this.history});
+
+  @override
+  Widget build(BuildContext context) {
+    if (history == null || history.isEmpty) {
+      return Center(child: Text(AppStrings.noData, style: TextStyle(color: AppColors.textSecondary)));
+    }
+
+    // Mock data based on history points for demo
+    // In reality, this should be parsed from history.stats
+    final total = history.points.length.toDouble();
+    double normal = 0, fast = 0, pvc = 0, slow = 0;
+    
+    if (total > 0) {
+      for (final p in history.points) {
+        if (p.hrBpm > 100) fast++;
+        else if (p.hrBpm < 50) slow++;
+        else if (p.anomalyScore > 0.5) pvc++;
+        else normal++;
+      }
+    } else {
+      normal = 85; fast = 10; pvc = 5;
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Tỷ lệ phân bố các loại nhịp tim', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 200,
+                child: PieChart(
+                  PieChartData(
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 40,
+                    sections: [
+                      PieChartSectionData(
+                        color: AppColors.safe,
+                        value: normal,
+                        title: '${(normal / (normal+fast+pvc+slow) * 100).toStringAsFixed(1)}%',
+                        radius: 50,
+                        titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      PieChartSectionData(
+                        color: AppColors.alert,
+                        value: fast,
+                        title: '${(fast / (normal+fast+pvc+slow) * 100).toStringAsFixed(1)}%',
+                        radius: 50,
+                        titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      PieChartSectionData(
+                        color: AppColors.watch,
+                        value: pvc,
+                        title: '${(pvc / (normal+fast+pvc+slow) * 100).toStringAsFixed(1)}%',
+                        radius: 50,
+                        titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      PieChartSectionData(
+                        color: AppColors.primary,
+                        value: slow,
+                        title: '${(slow / (normal+fast+pvc+slow) * 100).toStringAsFixed(1)}%',
+                        radius: 50,
+                        titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildLegend('Nhịp bình thường', AppColors.safe),
+              const SizedBox(height: 8),
+              _buildLegend('Nhịp nhanh', AppColors.alert),
+              const SizedBox(height: 8),
+              _buildLegend('Nhịp chậm', AppColors.primary),
+              const SizedBox(height: 8),
+              _buildLegend('Ngoại tâm thu (PVC)', AppColors.watch),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLegend(String label, Color color) {
+    return Row(
+      children: [
+        Container(width: 16, height: 16, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 }

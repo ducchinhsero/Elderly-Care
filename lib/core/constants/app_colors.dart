@@ -59,6 +59,7 @@ class AppColors {
   static const Color textSecondaryDark = Color(0xFF9E9E9E);
 
   // ─── Misc ───
+  static const Color border = Color(0xFFE0E0E0);
   static const Color divider = Color(0xFFE0E0E0);
   static const Color shimmerBase = Color(0xFFE0E0E0);
   static const Color shimmerHighlight = Color(0xFFF5F5F5);

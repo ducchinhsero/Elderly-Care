@@ -15,6 +15,7 @@ class AlertCenterScreen extends ConsumerStatefulWidget {
 
 class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _ignoreWatch = false;
 
   @override
   void initState() {
@@ -52,19 +53,41 @@ class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen> with Sing
           if (alertsState.unreadCount > 0)
             TextButton(onPressed: () => notifier.markAllAsRead(), child: const Text('Đọc hết', style: TextStyle(fontSize: 13))),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: AppStrings.tabNew),
-            Tab(text: AppStrings.tabToday),
-            Tab(text: AppStrings.tab7Days),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(kTextTabBarHeight + 48),
+          child: Column(
+            children: [
+              TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(text: 'Tất cả'),
+                  Tab(text: 'Hôm nay'),
+                  Tab(text: 'Tuần này'),
+                ],
+              ),
+              Container(
+                color: Theme.of(context).cardColor,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const Text('Bỏ qua cảnh báo "THEO DÕI"', style: TextStyle(fontSize: 13)),
+                    Switch(
+                      value: _ignoreWatch,
+                      onChanged: (val) => setState(() => _ignoreWatch = val),
+                      activeColor: AppColors.primary,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildAlertList(notifier.getNewAlerts(), alertsState.isLoading),
+          _buildAlertList(alertsState.alerts, alertsState.isLoading),
           _buildAlertList(notifier.getTodayAlerts(), alertsState.isLoading),
           _buildAlertList(notifier.getLast7DaysAlerts(), alertsState.isLoading),
         ],
@@ -72,10 +95,14 @@ class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen> with Sing
     );
   }
 
-  Widget _buildAlertList(List<AlertModel> alerts, bool isLoading) {
+  Widget _buildAlertList(List<AlertModel> allAlerts, bool isLoading) {
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    final alerts = _ignoreWatch 
+        ? allAlerts.where((a) => a.level.toUpperCase() != 'WATCH').toList() 
+        : allAlerts;
 
     if (alerts.isEmpty) {
       return Center(

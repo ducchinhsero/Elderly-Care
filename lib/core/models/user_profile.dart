@@ -1,194 +1,227 @@
-/// Model hồ sơ người dùng — từ GET /api/user/{id}
-class UserProfile {
-  final String id;
-  final String name;
-  final int age;
-  final String? avatarUrl;
-  final List<String> comorbidities;
-  final String? medications;
-  final PersonalThresholds thresholds;
-  final CalibrationStatus calibration;
-  final EmergencyContact? emergencyContact;
+import 'package:isar/isar.dart';
 
-  const UserProfile({
-    required this.id,
-    required this.name,
-    required this.age,
-    this.avatarUrl,
-    required this.comorbidities,
-    this.medications,
-    required this.thresholds,
-    required this.calibration,
-    this.emergencyContact,
+part 'user_profile.g.dart';
+
+@collection
+class UserProfile {
+  Id isarId = Isar.autoIncrement;
+
+  @Index(unique: true, replace: true)
+  String uid;
+
+  String fullName;
+  DateTime dateOfBirth;
+
+  @ignore
+  int get age {
+    final now = DateTime.now();
+    int a = now.year - dateOfBirth.year;
+    if (now.month < dateOfBirth.month ||
+        (now.month == dateOfBirth.month && now.day < dateOfBirth.day)) {
+      a--;
+    }
+    return a;
+  }
+
+  String gender; // "male" | "female"
+  double? weightKg;
+  double? heightCm;
+  String? avatarPath;
+  String? emergencyContactName;
+  String? emergencyContactPhone;
+
+  List<String> comorbidities;
+  List<String> medications;
+
+  int? restingHrBaseline;
+  double? rmssdBaseline;
+  String? primaryPhysician;
+  String? physicianPhone;
+  String? medicalNotes;
+
+  DateTime? lastCalibratedAt;
+  bool isCalibrated;
+
+  PersonalizedThresholds? thresholds;
+
+  UserProfile({
+    this.isarId = Isar.autoIncrement,
+    required this.uid,
+    required this.fullName,
+    required this.dateOfBirth,
+    required this.gender,
+    this.weightKg,
+    this.heightCm,
+    this.avatarPath,
+    this.emergencyContactName,
+    this.emergencyContactPhone,
+    this.comorbidities = const [],
+    this.medications = const [],
+    this.restingHrBaseline,
+    this.rmssdBaseline,
+    this.primaryPhysician,
+    this.physicianPhone,
+    this.medicalNotes,
+    this.lastCalibratedAt,
+    this.isCalibrated = false,
+    this.thresholds,
   });
+
+  @ignore
+  bool get needsRecalibration =>
+      lastCalibratedAt == null ||
+      DateTime.now().difference(lastCalibratedAt!).inDays > 7;
+
+  @ignore
+  Map<String, dynamic> get effectiveThresholds {
+    double hrLow = thresholds?.hrLow ?? 50.0;
+    double hrHigh = thresholds?.hrHigh ?? 100.0;
+    double hrCritical = thresholds?.hrCritical ?? 130.0;
+    double rmssdMin = thresholds?.rmssdMin ?? 18.0;
+    double rrCvMax = thresholds?.rrCvMax ?? 0.15;
+    bool warnIrregular = true;
+
+    // Adjust based on medications
+    if (medications.contains('beta_blocker')) {
+      hrLow = 45.0; 
+    }
+    if (medications.contains('pacemaker')) {
+      warnIrregular = false; 
+    }
+
+    // Adjust based on comorbidities
+    if (comorbidities.contains('af_known')) {
+      warnIrregular = false;
+      hrHigh = 130.0; 
+      hrCritical = 150.0;
+    }
+    if (comorbidities.contains('diabetes_t2') || comorbidities.contains('diabetes_t1')) {
+      rmssdMin = 13.0;
+    }
+
+    return {
+      'hr_low': hrLow,
+      'hr_high': hrHigh,
+      'hr_critical': hrCritical,
+      'rmssd_min': rmssdMin,
+      'rr_cv_max': rrCvMax,
+      'warn_irregular': warnIrregular,
+    };
+  }
+
+  factory UserProfile.empty() {
+    return UserProfile(
+      uid: 'default',
+      fullName: 'Người Dùng',
+      dateOfBirth: DateTime.now().subtract(const Duration(days: 65 * 365)),
+      gender: 'male',
+      comorbidities: [],
+      medications: [],
+      isCalibrated: false,
+    );
+  }
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
-      id: json['id'] as String? ?? '',
-      name: json['name'] as String? ?? '',
-      age: json['age'] as int? ?? 0,
-      avatarUrl: json['avatar_url'] as String?,
-      comorbidities: (json['comorbidities'] as List<dynamic>?)
-              ?.cast<String>() ??
-          [],
-      medications: json['medications'] as String?,
-      thresholds: json['thresholds'] != null
-          ? PersonalThresholds.fromJson(
-              json['thresholds'] as Map<String, dynamic>)
-          : const PersonalThresholds(),
-      calibration: json['calibration'] != null
-          ? CalibrationStatus.fromJson(
-              json['calibration'] as Map<String, dynamic>)
-          : const CalibrationStatus(),
-      emergencyContact: json['emergency_contact'] != null
-          ? EmergencyContact.fromJson(
-              json['emergency_contact'] as Map<String, dynamic>)
+      uid: json['id'] as String? ?? 'default',
+      fullName: json['name'] as String? ?? 'Người Dùng',
+      dateOfBirth: json['date_of_birth'] != null 
+          ? DateTime.parse(json['date_of_birth']) 
+          : DateTime.now().subtract(Duration(days: (json['age'] ?? 65) * 365)),
+      gender: json['gender'] as String? ?? 'male',
+      comorbidities: (json['comorbidities'] as List<dynamic>?)?.cast<String>() ?? [],
+      medications: json['medications'] is String 
+          ? [json['medications'] as String] 
+          : (json['medications'] as List<dynamic>?)?.cast<String>() ?? [],
+      isCalibrated: json['calibration']?['is_calibrated'] as bool? ?? false,
+      lastCalibratedAt: json['calibration']?['calibrated_at'] != null
+          ? DateTime.parse(json['calibration']['calibrated_at'])
           : null,
+      emergencyContactName: json['emergency_contact']?['name'] as String?,
+      emergencyContactPhone: json['emergency_contact']?['phone'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'name': name,
+      'id': uid,
+      'name': fullName,
+      'date_of_birth': dateOfBirth.toIso8601String(),
       'age': age,
-      'avatar_url': avatarUrl,
+      'gender': gender,
       'comorbidities': comorbidities,
       'medications': medications,
-      'thresholds': thresholds.toJson(),
-      'calibration': calibration.toJson(),
-      'emergency_contact': emergencyContact?.toJson(),
+      'calibration': {
+        'is_calibrated': isCalibrated,
+        'calibrated_at': lastCalibratedAt?.toIso8601String(),
+        'needs_recalibration': needsRecalibration,
+      },
+      'emergency_contact': {
+        'name': emergencyContactName ?? '',
+        'phone': emergencyContactPhone ?? '',
+      }
     };
   }
 
   UserProfile copyWith({
-    String? id,
-    String? name,
-    int? age,
-    String? avatarUrl,
+    String? uid,
+    String? fullName,
+    DateTime? dateOfBirth,
+    String? gender,
+    double? weightKg,
+    double? heightCm,
+    String? avatarPath,
+    String? emergencyContactName,
+    String? emergencyContactPhone,
     List<String>? comorbidities,
-    String? medications,
-    PersonalThresholds? thresholds,
-    CalibrationStatus? calibration,
-    EmergencyContact? emergencyContact,
+    List<String>? medications,
+    int? restingHrBaseline,
+    double? rmssdBaseline,
+    String? primaryPhysician,
+    String? physicianPhone,
+    String? medicalNotes,
+    DateTime? lastCalibratedAt,
+    bool? isCalibrated,
+    PersonalizedThresholds? thresholds,
   }) {
     return UserProfile(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      age: age ?? this.age,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
+      isarId: isarId, 
+      uid: uid ?? this.uid,
+      fullName: fullName ?? this.fullName,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      gender: gender ?? this.gender,
+      weightKg: weightKg ?? this.weightKg,
+      heightCm: heightCm ?? this.heightCm,
+      avatarPath: avatarPath ?? this.avatarPath,
+      emergencyContactName: emergencyContactName ?? this.emergencyContactName,
+      emergencyContactPhone: emergencyContactPhone ?? this.emergencyContactPhone,
       comorbidities: comorbidities ?? this.comorbidities,
       medications: medications ?? this.medications,
+      restingHrBaseline: restingHrBaseline ?? this.restingHrBaseline,
+      rmssdBaseline: rmssdBaseline ?? this.rmssdBaseline,
+      primaryPhysician: primaryPhysician ?? this.primaryPhysician,
+      physicianPhone: physicianPhone ?? this.physicianPhone,
+      medicalNotes: medicalNotes ?? this.medicalNotes,
+      lastCalibratedAt: lastCalibratedAt ?? this.lastCalibratedAt,
+      isCalibrated: isCalibrated ?? this.isCalibrated,
       thresholds: thresholds ?? this.thresholds,
-      calibration: calibration ?? this.calibration,
-      emergencyContact: emergencyContact ?? this.emergencyContact,
-    );
-  }
-
-  /// Default profile for first-time users
-  factory UserProfile.empty() {
-    return const UserProfile(
-      id: 'default',
-      name: '',
-      age: 65,
-      comorbidities: [],
-      thresholds: PersonalThresholds(),
-      calibration: CalibrationStatus(),
     );
   }
 }
 
-/// Ngưỡng cá nhân hóa
-class PersonalThresholds {
-  final double hrLow;
-  final double hrHigh;
-  final double rmssdMin;
-  final bool autoAdjust;
+@embedded
+class PersonalizedThresholds {
+  double hrLow;
+  double hrHigh;
+  double hrCritical;
+  double rmssdMin;
+  double rrCvMax;
 
-  const PersonalThresholds({
+  PersonalizedThresholds({
     this.hrLow = 50.0,
     this.hrHigh = 100.0,
-    this.rmssdMin = 15.0,
-    this.autoAdjust = true,
+    this.hrCritical = 130.0,
+    this.rmssdMin = 18.0,
+    this.rrCvMax = 0.15,
   });
-
-  factory PersonalThresholds.fromJson(Map<String, dynamic> json) {
-    return PersonalThresholds(
-      hrLow: (json['hr_low'] as num?)?.toDouble() ?? 50.0,
-      hrHigh: (json['hr_high'] as num?)?.toDouble() ?? 100.0,
-      rmssdMin: (json['rmssd_min'] as num?)?.toDouble() ?? 15.0,
-      autoAdjust: json['auto_adjust'] as bool? ?? true,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'hr_low': hrLow,
-      'hr_high': hrHigh,
-      'rmssd_min': rmssdMin,
-      'auto_adjust': autoAdjust,
-    };
-  }
-}
-
-/// Trạng thái calibration
-class CalibrationStatus {
-  final bool isCalibrated;
-  final DateTime? calibratedAt;
-  final bool needsRecalibration;
-
-  const CalibrationStatus({
-    this.isCalibrated = false,
-    this.calibratedAt,
-    this.needsRecalibration = false,
-  });
-
-  factory CalibrationStatus.fromJson(Map<String, dynamic> json) {
-    return CalibrationStatus(
-      isCalibrated: json['is_calibrated'] as bool? ?? false,
-      calibratedAt: json['calibrated_at'] != null
-          ? DateTime.parse(json['calibrated_at'] as String)
-          : null,
-      needsRecalibration: json['needs_recalibration'] as bool? ?? false,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'is_calibrated': isCalibrated,
-      'calibrated_at': calibratedAt?.toIso8601String(),
-      'needs_recalibration': needsRecalibration,
-    };
-  }
-
-  /// Cần calibrate lại nếu > 7 ngày
-  bool get isExpired {
-    if (!isCalibrated || calibratedAt == null) return false;
-    return DateTime.now().difference(calibratedAt!).inDays > 7;
-  }
-}
-
-/// Liên hệ khẩn cấp
-class EmergencyContact {
-  final String name;
-  final String phone;
-
-  const EmergencyContact({
-    required this.name,
-    required this.phone,
-  });
-
-  factory EmergencyContact.fromJson(Map<String, dynamic> json) {
-    return EmergencyContact(
-      name: json['name'] as String? ?? '',
-      phone: json['phone'] as String? ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'phone': phone,
-    };
-  }
 }

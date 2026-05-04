@@ -3,6 +3,7 @@ import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/mock_data_service.dart';
+import '../repositories/user_profile_repository.dart';
 import 'vitals_provider.dart';
 
 /// State cho user profile
@@ -44,39 +45,52 @@ class UserNotifier extends StateNotifier<UserState> {
   final ApiService _apiService;
   final StorageService _storageService;
   final MockDataService _mockDataService;
+  final UserProfileRepository _repository;
   final bool _isDemoMode;
 
   UserNotifier(
     this._apiService,
     this._storageService,
-    this._mockDataService, {
+    this._mockDataService,
+    this._repository, {
     required bool isDemoMode,
   })  : _isDemoMode = isDemoMode,
         super(const UserState()) {
     loadProfile();
   }
 
-  /// Tải profile từ API (hoặc mock data)
+  /// Tải profile từ DB local hoặc mock data/API
   Future<void> loadProfile() async {
     state = state.copyWith(isLoading: true);
     try {
       final userId = _storageService.userId;
-      Map<String, dynamic> json;
       
-      if (_isDemoMode) {
-        await Future.delayed(const Duration(milliseconds: 400));
-        json = _mockDataService.generateUserProfile();
-      } else {
-        json = await _apiService.getUserProfile(userId);
+      // Load local first
+      var profile = await _repository.getProfile(userId);
+      
+      if (profile == null) {
+        if (_isDemoMode) {
+          await Future.delayed(const Duration(milliseconds: 400));
+          final json = _mockDataService.generateUserProfile();
+          profile = UserProfile.fromJson(json);
+          profile.uid = userId;
+        } else {
+          try {
+            final json = await _apiService.getUserProfile(userId);
+            profile = UserProfile.fromJson(json);
+            profile.uid = userId;
+          } catch (e) {
+             profile = UserProfile.empty().copyWith(uid: userId);
+          }
+        }
+        await _repository.saveProfile(profile);
       }
       
-      final profile = UserProfile.fromJson(json);
       state = state.copyWith(
         profile: profile,
         isLoading: false,
       );
     } catch (e) {
-      // Fallback to default profile
       state = state.copyWith(
         profile: UserProfile.empty(),
         isLoading: false,
@@ -87,6 +101,7 @@ class UserNotifier extends StateNotifier<UserState> {
 
   /// Cập nhật profile
   Future<void> updateProfile(UserProfile updated) async {
+    await _repository.saveProfile(updated);
     state = state.copyWith(profile: updated);
   }
 
@@ -94,6 +109,7 @@ class UserNotifier extends StateNotifier<UserState> {
   Future<void> updateComorbidities(List<String> comorbidities) async {
     if (state.profile != null) {
       final updated = state.profile!.copyWith(comorbidities: comorbidities);
+      await _repository.saveProfile(updated);
       state = state.copyWith(profile: updated);
     }
   }
@@ -120,18 +136,18 @@ class UserNotifier extends StateNotifier<UserState> {
   void updateCalibrationCountdown(int secondsRemaining) {
     if (secondsRemaining <= 0) {
       // Calibration hoàn thành
-      final updated = state.profile?.copyWith(
-        calibration: CalibrationStatus(
+      if (state.profile != null) {
+        final updated = state.profile!.copyWith(
           isCalibrated: true,
-          calibratedAt: DateTime.now(),
-          needsRecalibration: false,
-        ),
-      );
-      state = state.copyWith(
-        profile: updated,
-        isCalibrating: false,
-        calibrationSecondsRemaining: 0,
-      );
+          lastCalibratedAt: DateTime.now(),
+        );
+        _repository.saveProfile(updated);
+        state = state.copyWith(
+          profile: updated,
+          isCalibrating: false,
+          calibrationSecondsRemaining: 0,
+        );
+      }
     } else {
       state = state.copyWith(calibrationSecondsRemaining: secondsRemaining);
     }
@@ -141,8 +157,10 @@ class UserNotifier extends StateNotifier<UserState> {
   Future<void> updateEmergencyContact(String name, String phone) async {
     if (state.profile != null) {
       final updated = state.profile!.copyWith(
-        emergencyContact: EmergencyContact(name: name, phone: phone),
+        emergencyContactName: name, 
+        emergencyContactPhone: phone,
       );
+      await _repository.saveProfile(updated);
       state = state.copyWith(profile: updated);
       await _storageService.setEmergencyPhone(phone);
     }
@@ -153,17 +171,23 @@ class UserNotifier extends StateNotifier<UserState> {
 
 // ─── Providers ───
 
+final userProfileRepositoryProvider = Provider<UserProfileRepository>((ref) {
+  throw UnimplementedError('Tạo repository trong main() và override provider này');
+});
+
 final userProvider =
     StateNotifierProvider<UserNotifier, UserState>((ref) {
   final apiService = ref.watch(apiServiceProvider);
   final storageService = ref.watch(storageServiceProvider);
   final mockDataService = ref.watch(mockDataServiceProvider);
+  final repository = ref.watch(userProfileRepositoryProvider);
   final isDemo = storageService.isDemoMode;
   
   return UserNotifier(
     apiService, 
     storageService, 
     mockDataService,
+    repository,
     isDemoMode: isDemo,
   );
 });

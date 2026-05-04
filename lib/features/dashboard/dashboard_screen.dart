@@ -7,12 +7,14 @@ import '../../core/providers/vitals_provider.dart';
 import '../../core/providers/alerts_provider.dart';
 import '../../core/providers/user_provider.dart';
 import 'widgets/hr_gauge_widget.dart';
+import 'widgets/condition_indicator_widget.dart';
 import 'widgets/hrv_card_widget.dart';
 import 'widgets/activity_badge_widget.dart';
 import 'widgets/emotion_card_widget.dart';
 import 'widgets/alert_banner_widget.dart';
 import 'widgets/connection_status_widget.dart';
 import 'widgets/mini_hr_chart_widget.dart';
+import '../reports/clinical_report_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -30,7 +32,7 @@ class DashboardScreen extends ConsumerWidget {
         ? (storage.monitorTargetName.isNotEmpty
             ? storage.monitorTargetName
             : 'Đang theo dõi')
-        : (userState.profile?.name ?? 'Người dùng');
+        : (userState.profile?.fullName ?? 'Người dùng');
 
     return Scaffold(
       appBar: AppBar(
@@ -59,6 +61,21 @@ class DashboardScreen extends ConsumerWidget {
           IconButton(
             onPressed: () => context.push('/settings'),
             icon: const Icon(Icons.settings_outlined),
+          ),
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'Tạo báo cáo lâm sàng',
+            onSelected: (days) {
+              Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (_) => ClinicalReportScreen(days: days))
+              );
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 1, child: Text('Hôm nay (24h qua)')),
+              const PopupMenuItem(value: 7, child: Text('7 ngày qua')),
+              const PopupMenuItem(value: 30, child: Text('30 ngày qua')),
+            ],
           ),
         ],
       ),
@@ -111,9 +128,35 @@ class DashboardScreen extends ConsumerWidget {
                 ),
 
               // ── Hero: HR Gauge ──
-              HrGaugeWidget(
-                hr: vitals?.hrBpm ?? 0,
+              HRGaugeWidget(
+                hrBpm: vitals?.hrBpm ?? 0,
                 alertLevel: vitals?.alertLevel ?? 'SAFE',
+                conditionNameVi: vitals?.beatName ?? 'Nhịp xoang bình thường',
+                confidence: 1.0 - (vitals?.anomalyScore ?? 0.0), // Mock confidence from anomaly
+                hrMin: (vitals?.hrBpm ?? 60) - 4,
+                hrMax: (vitals?.hrBpm ?? 60) + 7,
+              ),
+              const SizedBox(height: 16),
+
+              // ── Tình trạng tim ──
+              ConditionIndicatorWidget(
+                conditionKey: vitals?.beatType ?? 'NSR',
+                alertLevel: vitals?.alertLevel ?? 'SAFE',
+                confidence: 1.0 - (vitals?.anomalyScore ?? 0.0),
+                onTap: () {
+                  // TODO: Navigate to Condition Detail
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // ── Trạng thái cảm xúc ──
+              EmotionCardWidget(
+                emotion: vitals?.emotion ?? 'Calm',
+                activityLevel: vitals?.activity ?? 'REST',
+                hasEnoughData: true, // Mocked for demo
+                onTap: () {
+                  // TODO: Navigate to Emotion Detail
+                },
               ),
               const SizedBox(height: 20),
 
@@ -139,25 +182,8 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _LfHfCard(
-                      lfHfRatio: vitals?.lfHfRatio ?? 0,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
                     child: ActivityBadgeWidget(
                       activity: vitals?.activity ?? 'rest',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: EmotionCardWidget(
-                      emotion: vitals?.emotion ?? 'calm',
-                      confidence: vitals?.emotionConf ?? 0,
                     ),
                   ),
                 ],
