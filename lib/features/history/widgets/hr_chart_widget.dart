@@ -49,7 +49,7 @@ class HrChartWidget extends StatelessWidget {
                     child: LineChart(
                       LineChartData(
                         gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: 20,
-                          getDrawingHorizontalLine: (v) => FlLine(color: AppColors.chartGrid.withOpacity(0.3), strokeWidth: 1)),
+                          getDrawingHorizontalLine: (v) => FlLine(color: AppColors.chartGrid.withValues(alpha: 0.3), strokeWidth: 1)),
                         titlesData: FlTitlesData(
                           leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40, interval: 20,
                             getTitlesWidget: (v, _) => Text('${v.toInt()}', style: const TextStyle(fontSize: 10, color: AppColors.textHint)))),

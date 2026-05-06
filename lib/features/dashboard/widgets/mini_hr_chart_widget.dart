@@ -34,7 +34,7 @@ class MiniHrChartWidget extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: 20,
-          getDrawingHorizontalLine: (value) => FlLine(color: AppColors.chartGrid.withOpacity(0.3), strokeWidth: 1),
+          getDrawingHorizontalLine: (value) => FlLine(color: AppColors.chartGrid.withValues(alpha: 0.3), strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(

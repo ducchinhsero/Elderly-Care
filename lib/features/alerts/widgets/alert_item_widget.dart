@@ -20,14 +20,14 @@ class AlertItemWidget extends StatelessWidget {
             ? Theme.of(context).cardTheme.color
             : AppColors.backgroundFromAlertLevel(alert.level),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(alert.isRead ? 0.1 : 0.3)),
+        border: Border.all(color: color.withValues(alpha: alert.isRead ? 0.1 : 0.3)),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
+            color: color.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(_getIcon(), color: darkColor, size: 22),
@@ -42,7 +42,7 @@ class AlertItemWidget extends StatelessWidget {
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
               child: Text(AppStrings.alertLevelText(alert.level), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: darkColor)),
             ),
           ],

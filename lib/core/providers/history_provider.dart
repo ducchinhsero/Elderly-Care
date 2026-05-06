@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/history_model.dart';
 import '../services/api_service.dart';
-import '../services/storage_service.dart';
 import '../services/mock_data_service.dart';
 import 'vitals_provider.dart';
 
@@ -37,13 +36,11 @@ class HistoryState {
 /// Notifier cho history
 class HistoryNotifier extends StateNotifier<HistoryState> {
   final ApiService _apiService;
-  final StorageService _storageService;
   final MockDataService _mockDataService;
   final bool _isDemoMode;
 
   HistoryNotifier(
     this._apiService,
-    this._storageService,
     this._mockDataService, {
     required bool isDemoMode,
   })  : _isDemoMode = isDemoMode,
@@ -107,7 +104,6 @@ final historyProvider =
 
   return HistoryNotifier(
     apiService,
-    storageService,
     mockDataService,
     isDemoMode: isDemo,
   );

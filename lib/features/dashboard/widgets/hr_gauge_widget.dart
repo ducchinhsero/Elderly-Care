@@ -147,7 +147,7 @@ class _HRGaugeWidgetState extends State<HRGaugeWidget> with TickerProviderStateM
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: _getBaseColor().withOpacity(0.8),
+                                    color: _getBaseColor().withValues(alpha: 0.8),
                                   ),
                                 ),
                               ],
@@ -167,7 +167,7 @@ class _HRGaugeWidgetState extends State<HRGaugeWidget> with TickerProviderStateM
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: AppColors.textHint.withOpacity(0.1),
+                                  color: AppColors.textHint.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Row(
@@ -233,7 +233,7 @@ class _GaugePainter extends CustomPainter {
 
     // Vòng giữa nền trong suốt
     final bgPaint = Paint()
-      ..color = colors.first.withOpacity(0.08)
+      ..color = colors.first.withValues(alpha: 0.08)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius - 16, bgPaint);
 
@@ -251,7 +251,7 @@ class _GaugePainter extends CustomPainter {
 
     // Vẽ nền xám nhạt cho arc
     final arcBgPaint = Paint()
-      ..color = AppColors.border.withOpacity(0.3)
+      ..color = AppColors.border.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 16
       ..strokeCap = StrokeCap.round;

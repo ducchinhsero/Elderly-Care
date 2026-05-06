@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/app_colors.dart';
 
 /// Widget slider ngưỡng HR bình thường
 class AlertThresholdWidget extends StatefulWidget {

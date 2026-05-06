@@ -109,7 +109,7 @@ class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen> with Sing
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_outline, size: 64, color: AppColors.safe.withOpacity(0.5)),
+            Icon(Icons.check_circle_outline, size: 64, color: AppColors.safe.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             const Text(AppStrings.noAlerts, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),

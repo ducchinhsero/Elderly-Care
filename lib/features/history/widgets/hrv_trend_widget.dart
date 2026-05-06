@@ -61,7 +61,7 @@ class HrvTrendWidget extends StatelessWidget {
                         ],
                         // Dashed line for normal threshold
                         extraLinesData: ExtraLinesData(horizontalLines: [
-                          HorizontalLine(y: 20, color: AppColors.safe.withOpacity(0.5), strokeWidth: 1, dashArray: [5, 5],
+                          HorizontalLine(y: 20, color: AppColors.safe.withValues(alpha: 0.5), strokeWidth: 1, dashArray: [5, 5],
                             label: HorizontalLineLabel(show: true, alignment: Alignment.topRight,
                               style: TextStyle(fontSize: 10, color: AppColors.safe), labelResolver: (_) => 'Ngưỡng bình thường')),
                         ]),

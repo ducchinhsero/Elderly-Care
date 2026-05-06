@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/history_provider.dart';
@@ -97,7 +98,7 @@ class HealthReportScreen extends ConsumerWidget {
 ⚠️ Số cảnh báo: ${stats.alertCount}
 ✅ Thời gian bình thường: ${stats.normalPercent.toStringAsFixed(0)}%
 ''';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã sao chép báo cáo')));
+    Share.share(text, subject: AppStrings.healthReport);
   }
 }
 

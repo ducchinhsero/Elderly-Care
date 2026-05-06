@@ -19,8 +19,6 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -44,7 +42,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withOpacity(0.3),
+                      color: AppColors.primary.withValues(alpha: 0.3),
                       blurRadius: 20,
                       spreadRadius: 2,
                     ),
@@ -124,7 +122,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     disabledBackgroundColor:
-                        AppColors.primary.withOpacity(0.3),
+                        AppColors.primary.withValues(alpha: 0.3),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -151,7 +149,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
     await storage.setUserRole(_selectedRole!);
     await storage.setOnboardingCompleted(true);
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     if (_selectedRole == 'caregiver') {
       // Chuyển đến setup cloud URL
@@ -191,7 +189,7 @@ class _RoleCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: isSelected
-              ? color.withOpacity(0.08)
+              ? color.withValues(alpha: 0.08)
               : Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
@@ -201,7 +199,7 @@ class _RoleCard extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: color.withOpacity(0.15),
+                    color: color.withValues(alpha: 0.15),
                     blurRadius: 16,
                     spreadRadius: 0,
                     offset: const Offset(0, 4),
@@ -214,7 +212,7 @@ class _RoleCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: color.withOpacity(isSelected ? 0.2 : 0.1),
+                color: color.withValues(alpha: isSelected ? 0.2 : 0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(icon, size: 32, color: color),

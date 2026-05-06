@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_client.dart' as mqtt show MqttConnectionState;
 import 'package:mqtt_client/mqtt_server_client.dart';
 import '../constants/mqtt_topics.dart';
 
@@ -78,7 +79,7 @@ class MqttService {
       await _client!.connect();
 
       if (_client!.connectionStatus!.state ==
-          MqttConnectionState.connected) {
+          mqtt.MqttConnectionState.connected) {
         _subscribeToTopics();
         _updateConnectionState(MqttConnectionState.connected);
         return true;
@@ -151,7 +152,7 @@ class MqttService {
 
       await testClient.connect();
       final success = testClient.connectionStatus!.state ==
-          MqttConnectionState.connected;
+          mqtt.MqttConnectionState.connected;
       testClient.disconnect();
       return success;
     } catch (e) {

@@ -37,9 +37,9 @@ class CalibrationWidget extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _statusColor().withOpacity(0.1),
+                color: _statusColor().withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _statusColor().withOpacity(0.3)),
+                border: Border.all(color: _statusColor().withValues(alpha: 0.3)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -61,7 +61,7 @@ class CalibrationWidget extends StatelessWidget {
 
             if (isCalibrating) ...[
               // Progress
-              LinearProgressIndicator(value: 1.0 - (secondsRemaining / 1800), backgroundColor: AppColors.primary.withOpacity(0.1)),
+              LinearProgressIndicator(value: 1.0 - (secondsRemaining / 1800), backgroundColor: AppColors.primary.withValues(alpha: 0.1)),
               const SizedBox(height: 8),
               Text('${AppStrings.calibrating} ${_formatTime(secondsRemaining)}',
                 style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w500)),
