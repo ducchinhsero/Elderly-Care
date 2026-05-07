@@ -15,7 +15,7 @@ extension GetUserProfileCollection on Isar {
 
 const UserProfileSchema = CollectionSchema(
   name: r'UserProfile',
-  id: 4738427352541298,
+  id: 4738427352541298891,
   properties: {
     r'avatarPath': PropertySchema(
       id: 0,
@@ -121,7 +121,7 @@ const UserProfileSchema = CollectionSchema(
   idName: r'isarId',
   indexes: {
     r'uid': IndexSchema(
-      id: 8193695471701937,
+      id: 8193695471701937315,
       name: r'uid',
       unique: true,
       replace: true,
@@ -3548,7 +3548,7 @@ extension UserProfileQueryProperty
 
 const PersonalizedThresholdsSchema = Schema(
   name: r'PersonalizedThresholds',
-  id: -1323452334108098,
+  id: -1323452334108098903,
   properties: {
     r'hrCritical': PropertySchema(
       id: 0,
