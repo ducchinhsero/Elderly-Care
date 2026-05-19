@@ -96,7 +96,14 @@ class ConnectionStatusWidget extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 6),
-          Text(text, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color, fontSize: 11, fontWeight: FontWeight.w500)),
+          Flexible(
+            child: Text(
+              text,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color, fontSize: 11, fontWeight: FontWeight.w500),
+            ),
+          ),
         ],
       ),
     );

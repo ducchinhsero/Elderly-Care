@@ -38,9 +38,14 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Row(
           children: [
-            Text(displayName),
+            Flexible(
+              child: Text(
+                displayName,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             const SizedBox(width: 8),
-            const ConnectionStatusWidget(),
+            const Flexible(child: ConnectionStatusWidget()),
           ],
         ),
         actions: [
