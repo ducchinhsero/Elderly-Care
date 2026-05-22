@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -171,6 +173,16 @@ class DashboardScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 20),
 
+              if (vitals != null) ...[
+                _ModelOutputSection(vitals: vitals),
+                const SizedBox(height: 16),
+              ],
+
+              if (vitalsState.healthReport != null) ...[
+                _TimeLayerReportSection(report: vitalsState.healthReport!),
+                const SizedBox(height: 16),
+              ],
+
               // ── Alert Banner (chỉ khi != SAFE) ──
               if (vitals != null && vitals.needsAttention)
                 Padding(
@@ -287,6 +299,236 @@ class DashboardScreen extends ConsumerWidget {
     return '${dt.hour.toString().padLeft(2, '0')}:'
         '${dt.minute.toString().padLeft(2, '0')}:'
         '${dt.second.toString().padLeft(2, '0')}';
+  }
+}
+
+class _ModelOutputSection extends StatelessWidget {
+  final dynamic vitals;
+
+  const _ModelOutputSection({required this.vitals});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.analytics_outlined, size: 20, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Kết quả phân tích từ model',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _MetricRow(
+              label: 'Nhịp tim',
+              value: '${vitals.rhythmLabel} | AFib ${(vitals.afibProbability * 100).round()}%',
+              detail: 'Độ tin cậy rhythm ${(vitals.rhythmConfidence * 100).round()}%',
+            ),
+            const Divider(height: 16),
+            _MetricRow(
+              label: 'PVC/PAC',
+              value: vitals.ectopyLabel,
+              detail: 'PVC ${(vitals.pvcProbability * 100).round()}%, PAC ${(vitals.pacProbability * 100).round()}%',
+            ),
+            const Divider(height: 16),
+            _MetricRow(
+              label: 'Tín hiệu',
+              value: vitals.signalQualityLabel,
+              detail: 'Điểm ${(vitals.signalQualityScore * 100).round()}% - ${vitals.riskReason.isEmpty ? vitals.message : vitals.riskReason}',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TimeLayerReportSection extends StatelessWidget {
+  final dynamic report;
+
+  const _TimeLayerReportSection({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.health_and_safety_outlined, size: 20, color: _levelColor(report.overallLevel)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Báo cáo sức khỏe theo thời gian',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                _LevelChip(level: report.overallLevel),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _LayerTile(name: 'Hiện tại', layer: report.realtime),
+            const Divider(height: 16),
+            _LayerTile(name: '24 giờ', layer: report.daily),
+            const Divider(height: 16),
+            _LayerTile(name: 'Nhiều ngày', layer: report.longTerm),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LayerTile extends StatelessWidget {
+  final String name;
+  final dynamic layer;
+
+  const _LayerTile({required this.name, required this.layer});
+
+  @override
+  Widget build(BuildContext context) {
+    final findings = layer.findings as List;
+    final findingText = findings.isEmpty
+        ? 'Không có phát hiện đáng chú ý'
+        : findings.take(2).map((f) => f.title).join(', ');
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 76,
+          child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _LevelChip(level: layer.level),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      layer.windowLabel,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                layer.summary.isEmpty ? findingText : layer.summary,
+                style: const TextStyle(fontSize: 13, height: 1.35),
+              ),
+              if (findings.isNotEmpty)
+                Text(
+                  findingText,
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final String detail;
+
+  const _MetricRow({
+    required this.label,
+    required this.value,
+    required this.detail,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(detail, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LevelChip extends StatelessWidget {
+  final String level;
+
+  const _LevelChip({required this.level});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _levelColor(level);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        _levelText(level),
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+      ),
+    );
+  }
+}
+
+Color _levelColor(String level) {
+  switch (level.toLowerCase()) {
+    case 'critical':
+      return AppColors.critical;
+    case 'high':
+      return AppColors.alert;
+    case 'medium':
+      return AppColors.watchDark;
+    case 'low':
+      return AppColors.safe;
+    default:
+      return AppColors.textSecondary;
+  }
+}
+
+String _levelText(String level) {
+  switch (level.toLowerCase()) {
+    case 'critical':
+      return 'Khẩn cấp';
+    case 'high':
+      return 'Cao';
+    case 'medium':
+      return 'Theo dõi';
+    case 'low':
+      return 'Thấp';
+    default:
+      return 'Chưa đủ dữ liệu';
   }
 }
 

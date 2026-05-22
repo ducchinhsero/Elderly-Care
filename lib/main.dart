@@ -28,7 +28,7 @@ void main() async {
   // Kiểm tra đã onboarding chưa
   final onboardingCompleted = storageService.onboardingCompleted;
 
-  // Khởi tạo Isar repository
+  // Khởi tạo user profile repository
   final userProfileRepo = UserProfileRepository();
   await userProfileRepo.init();
 

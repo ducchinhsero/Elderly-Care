@@ -16,7 +16,7 @@ class HistoryModel {
           .map((e) => HistoryPoint.fromJson(e as Map<String, dynamic>))
           .toList();
     } else if (json is Map<String, dynamic>) {
-      points = (json['data'] as List<dynamic>?)
+      points = ((json['data'] ?? json['items']) as List<dynamic>?)
               ?.map((e) => HistoryPoint.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [];
@@ -74,16 +74,27 @@ class HistoryPoint {
   });
 
   factory HistoryPoint.fromJson(Map<String, dynamic> json) {
+    final emotion = json['emotion'] as Map<String, dynamic>?;
+    final anomaly = json['anomaly'] as Map<String, dynamic>?;
+    final risk = json['risk'] as Map<String, dynamic>?;
+    final sensor = json['sensor_context'] as Map<String, dynamic>?;
     return HistoryPoint(
       timestamp: DateTime.parse(json['timestamp'] as String),
-      hrBpm: (json['hr_bpm'] as num?)?.toDouble() ?? 0.0,
+      hrBpm: (json['heart_rate_bpm'] as num?)?.toDouble() ??
+          (json['hr_bpm'] as num?)?.toDouble() ??
+          0.0,
       rmssdMs: (json['rmssd_ms'] as num?)?.toDouble() ?? 0.0,
       lfHfRatio: (json['lf_hf_ratio'] as num?)?.toDouble() ?? 0.0,
-      anomalyScore: (json['anomaly_score'] as num?)?.toDouble() ?? 0.0,
-      alertLevel: json['alert_level'] as String? ?? 'SAFE',
-      activity: json['activity'] as String? ?? 'rest',
-      emotion: json['emotion'] as String? ?? 'calm',
-      emotionConf: (json['emotion_conf'] as num?)?.toDouble() ?? 0.0,
+      anomalyScore: (json['anomaly_score'] as num?)?.toDouble() ??
+          ((anomaly?['value'] == 1) ? 1.0 : 0.0),
+      alertLevel: _mapAlertLevel(json['alert_level'] as String? ?? risk?['level'] as String? ?? 'SAFE'),
+      activity: sensor?['activity_state'] as String? ??
+          json['activity'] as String? ??
+          'rest',
+      emotion: _mapEmotion(emotion?['label'] as String? ?? json['emotion'] as String? ?? 'calm'),
+      emotionConf: (emotion?['confidence'] as num?)?.toDouble() ??
+          (json['emotion_conf'] as num?)?.toDouble() ??
+          0.0,
     );
   }
 
@@ -102,6 +113,38 @@ class HistoryPoint {
   }
 
   bool get hasAlert => alertLevel.toUpperCase() != 'SAFE';
+}
+
+String _mapAlertLevel(String raw) {
+  switch (raw.toLowerCase()) {
+    case 'critical':
+      return 'CRITICAL';
+    case 'high':
+    case 'alert':
+      return 'ALERT';
+    case 'medium':
+    case 'watch':
+    case 'unknown':
+      return 'WATCH';
+    case 'normal':
+    case 'low':
+    case 'safe':
+    default:
+      return 'SAFE';
+  }
+}
+
+String _mapEmotion(String raw) {
+  switch (raw.toLowerCase()) {
+    case 'neutral':
+      return 'calm';
+    case 'relaxed':
+      return 'positive';
+    case 'stress':
+      return 'stressed';
+    default:
+      return raw;
+  }
 }
 
 /// Thống kê từ dữ liệu lịch sử

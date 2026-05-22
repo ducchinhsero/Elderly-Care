@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/history_provider.dart';
+import '../../core/providers/vitals_provider.dart';
 import '../../core/models/history_model.dart';
 import 'widgets/daily_summary_widget.dart';
 import 'widgets/insight_card_widget.dart';
@@ -14,6 +15,7 @@ class HealthReportScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historyState = ref.watch(historyProvider);
+    final healthReport = ref.watch(vitalsProvider).healthReport;
     final stats = historyState.historyData?.stats;
     final score = _calculateScore(stats);
 
@@ -31,6 +33,11 @@ class HealthReportScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   // Score circle
+                  if (healthReport != null) ...[
+                    _LayeredReportCard(report: healthReport),
+                    const SizedBox(height: 16),
+                  ],
+
                   DailySummaryWidget(score: score, stats: stats),
                   const SizedBox(height: 16),
 
@@ -127,6 +134,102 @@ class _ComparisonSection extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _LayeredReportCard extends StatelessWidget {
+  final dynamic report;
+
+  const _LayeredReportCard({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Đánh giá theo 3 tầng thời gian',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            _ReportLine(title: 'Hiện tại', level: report.realtime.level, summary: report.realtime.summary),
+            const Divider(height: 16),
+            _ReportLine(title: '24 giờ', level: report.daily.level, summary: report.daily.summary),
+            const Divider(height: 16),
+            _ReportLine(title: 'Nhiều ngày', level: report.longTerm.level, summary: report.longTerm.summary),
+            const SizedBox(height: 10),
+            Text(
+              'Kết quả là cảnh báo/nghi ngờ nguy cơ, không phải chẩn đoán y khoa.',
+              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportLine extends StatelessWidget {
+  final String title;
+  final String level;
+  final String summary;
+
+  const _ReportLine({
+    required this.title,
+    required this.level,
+    required this.summary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: 76, child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700))),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_levelText(level), style: TextStyle(fontWeight: FontWeight.w700, color: _levelColor(level))),
+              Text(summary.isEmpty ? '--' : summary, style: const TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Color _levelColor(String level) {
+  switch (level.toLowerCase()) {
+    case 'critical':
+      return AppColors.critical;
+    case 'high':
+      return AppColors.alert;
+    case 'medium':
+      return AppColors.watchDark;
+    case 'low':
+      return AppColors.safe;
+    default:
+      return AppColors.textSecondary;
+  }
+}
+
+String _levelText(String level) {
+  switch (level.toLowerCase()) {
+    case 'critical':
+      return 'Khẩn cấp';
+    case 'high':
+      return 'Nguy cơ cao';
+    case 'medium':
+      return 'Cần theo dõi';
+    case 'low':
+      return 'Nguy cơ thấp';
+    default:
+      return 'Chưa đủ dữ liệu';
   }
 }
 

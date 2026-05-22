@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
 
-/// Service gọi FastAPI backend qua HTTP
+/// HTTP client for the ECG pipeline FastAPI backend.
 class ApiService {
   late final Dio _dio;
-  String _baseUrl = 'http://192.168.1.100:8000';
+  String _baseUrl = 'http://127.0.0.1:8000';
 
   ApiService() {
     _dio = Dio(BaseOptions(
@@ -15,100 +15,121 @@ class ApiService {
       },
     ));
 
-    // Interceptor cho logging (debug)
     _dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
+      requestBody: false,
+      responseBody: false,
       logPrint: (obj) => print('[API] $obj'),
     ));
   }
 
-  /// Cấu hình base URL
+  String get baseUrl => _baseUrl;
+
   void configure({required String baseUrl}) {
-    _baseUrl = baseUrl;
+    _baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), '');
     _dio.options.baseUrl = _baseUrl;
   }
 
-  /// GET /api/health — vitals mới nhất
+  /// GET /latest-result - latest model output.
   Future<Map<String, dynamic>> getLatestVitals() async {
     try {
-      final response = await _dio.get('$_baseUrl/api/health');
-      return response.data as Map<String, dynamic>;
+      final response = await _dio.get('$_baseUrl/latest-result');
+      final data = response.data as Map<String, dynamic>;
+      return (data['latest_result'] as Map<String, dynamic>?) ?? data;
     } on DioException catch (e) {
-      throw ApiException('Không thể lấy dữ liệu vitals: ${e.message}');
+      throw ApiException('Cannot load latest vitals: ${e.message}');
     }
   }
 
-  /// GET /api/history?hours=N — lịch sử
-  Future<List<dynamic>> getHistory({int hours = 24}) async {
+  /// GET /history - stored prediction history.
+  Future<Map<String, dynamic>> getHistory({int hours = 24}) async {
     try {
       final response = await _dio.get(
-        '$_baseUrl/api/history',
-        queryParameters: {'hours': hours},
+        '$_baseUrl/history',
+        queryParameters: {
+          'days': hours / 24.0,
+          'limit': 5000,
+        },
       );
-      if (response.data is List) {
-        return response.data as List<dynamic>;
-      }
-      return (response.data['data'] as List<dynamic>?) ?? [];
+      return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Không thể lấy lịch sử: ${e.message}');
+      throw ApiException('Cannot load history: ${e.message}');
     }
   }
 
-  /// GET /api/alerts?limit=N — danh sách alerts gần nhất
+  /// GET /events - event timeline used as app alerts.
   Future<List<dynamic>> getAlerts({int limit = 50}) async {
     try {
       final response = await _dio.get(
-        '$_baseUrl/api/alerts',
-        queryParameters: {'limit': limit},
+        '$_baseUrl/events',
+        queryParameters: {
+          'days': 7,
+          'limit': limit,
+        },
       );
       if (response.data is List) {
         return response.data as List<dynamic>;
       }
-      return (response.data['alerts'] as List<dynamic>?) ?? [];
+      return (response.data['events'] as List<dynamic>?) ?? [];
     } on DioException catch (e) {
-      throw ApiException('Không thể lấy cảnh báo: ${e.message}');
+      throw ApiException('Cannot load alerts: ${e.message}');
     }
   }
 
-  /// GET /api/user/{id} — thông tin người dùng
+  /// GET /health-report - realtime, 24h, and long-term assessment.
+  Future<Map<String, dynamic>> getHealthReport({
+    String? patientId,
+    double dailyHours = 24,
+    double longTermDays = 7,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '$_baseUrl/health-report',
+        queryParameters: {
+          if (patientId != null && patientId.isNotEmpty) 'patient_id': patientId,
+          'daily_hours': dailyHours,
+          'long_term_days': longTermDays,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException('Cannot load health report: ${e.message}');
+    }
+  }
+
   Future<Map<String, dynamic>> getUserProfile(String userId) async {
     try {
       final response = await _dio.get('$_baseUrl/api/user/$userId');
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Không thể lấy thông tin người dùng: ${e.message}');
+      throw ApiException('Cannot load user profile: ${e.message}');
     }
   }
 
-  /// POST /api/calibrate — trigger calibration 30 phút
   Future<Map<String, dynamic>> startCalibration() async {
     try {
       final response = await _dio.post('$_baseUrl/api/calibrate');
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Không thể bắt đầu calibration: ${e.message}');
+      throw ApiException('Cannot start calibration: ${e.message}');
     }
   }
 
-  /// Health check — kiểm tra backend có sống không
   Future<bool> healthCheck() async {
     try {
       final response = await _dio.get(
-        '$_baseUrl/api/health',
+        '$_baseUrl/health',
         options: Options(
           sendTimeout: const Duration(seconds: 5),
           receiveTimeout: const Duration(seconds: 5),
         ),
       );
       return response.statusCode == 200;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
 }
 
-/// Custom exception cho API errors
 class ApiException implements Exception {
   final String message;
   const ApiException(this.message);

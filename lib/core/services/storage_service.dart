@@ -32,7 +32,7 @@ class StorageService {
 
   /// Gateway IP
   String get gatewayIp =>
-      getSetting<String>('gateway_ip', defaultValue: '192.168.1.100')!;
+      getSetting<String>('gateway_ip', defaultValue: '127.0.0.1')!;
   Future<void> setGatewayIp(String ip) => saveSetting('gateway_ip', ip);
 
   /// MQTT Port
@@ -143,7 +143,7 @@ class StorageService {
 
   /// Demo mode
   bool get isDemoMode =>
-      getSetting<bool>('demo_mode', defaultValue: true)!; // Mặc định bật để demo
+      getSetting<bool>('demo_mode', defaultValue: false)!;
   Future<void> setDemoMode(bool v) => saveSetting('demo_mode', v);
 
   // ─── Alerts cache ───

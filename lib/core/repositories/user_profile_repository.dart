@@ -1,55 +1,27 @@
-import 'package:isar/isar.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_profile.dart';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 class UserProfileRepository {
-  Isar? _isar;
-  final List<UserProfile> _webMemoryDb = [];
+  static const String _boxName = 'user_profiles';
+  late Box _box;
 
   Future<void> init() async {
-    if (kIsWeb) {
-      // Isar v3 does not support web. Use in-memory for testing on Chrome.
-      return;
-    }
-
-    final dir = await getApplicationDocumentsDirectory();
-    _isar = await Isar.open(
-      [UserProfileSchema],
-      directory: dir.path,
-    );
+    _box = await Hive.openBox(_boxName);
   }
 
   Future<UserProfile?> getProfile(String uid) async {
-    if (kIsWeb) {
-      try {
-        return _webMemoryDb.firstWhere((p) => p.uid == uid);
-      } catch (_) {
-        return null;
-      }
+    final value = _box.get(uid);
+    if (value is Map) {
+      return UserProfile.fromJson(Map<String, dynamic>.from(value));
     }
-    return await _isar!.userProfiles.where().uidEqualTo(uid).findFirst();
+    return null;
   }
 
   Future<void> saveProfile(UserProfile profile) async {
-    if (kIsWeb) {
-      _webMemoryDb.removeWhere((p) => p.uid == profile.uid);
-      _webMemoryDb.add(profile);
-      return;
-    }
-    await _isar!.writeTxn(() async {
-      await _isar!.userProfiles.put(profile);
-    });
+    await _box.put(profile.uid, profile.toJson());
   }
 
   Future<void> deleteProfile(String uid) async {
-    if (kIsWeb) {
-      _webMemoryDb.removeWhere((p) => p.uid == uid);
-      return;
-    }
-    await _isar!.writeTxn(() async {
-      await _isar!.userProfiles.where().uidEqualTo(uid).deleteAll();
-    });
+    await _box.delete(uid);
   }
 }

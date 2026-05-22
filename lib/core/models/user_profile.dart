@@ -1,18 +1,11 @@
-import 'package:isar/isar.dart';
-
-part 'user_profile.g.dart';
-
-@collection
 class UserProfile {
-  Id isarId = Isar.autoIncrement;
+  int isarId;
 
-  @Index(unique: true, replace: true)
   String uid;
 
   String fullName;
   DateTime dateOfBirth;
 
-  @ignore
   int get age {
     final now = DateTime.now();
     int a = now.year - dateOfBirth.year;
@@ -45,7 +38,7 @@ class UserProfile {
   PersonalizedThresholds? thresholds;
 
   UserProfile({
-    this.isarId = Isar.autoIncrement,
+    this.isarId = 0,
     required this.uid,
     required this.fullName,
     required this.dateOfBirth,
@@ -67,12 +60,10 @@ class UserProfile {
     this.thresholds,
   });
 
-  @ignore
   bool get needsRecalibration =>
       lastCalibratedAt == null ||
       DateTime.now().difference(lastCalibratedAt!).inDays > 7;
 
-  @ignore
   Map<String, dynamic> get effectiveThresholds {
     double hrLow = thresholds?.hrLow ?? 50.0;
     double hrHigh = thresholds?.hrHigh ?? 100.0;
@@ -209,7 +200,6 @@ class UserProfile {
   }
 }
 
-@embedded
 class PersonalizedThresholds {
   double hrLow;
   double hrHigh;

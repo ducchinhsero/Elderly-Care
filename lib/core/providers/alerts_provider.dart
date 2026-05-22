@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/alert_model.dart';
-import '../services/mqtt_service.dart';
 import '../services/api_service.dart';
-import '../services/storage_service.dart';
 import '../services/mock_data_service.dart';
+import '../services/storage_service.dart';
 import 'vitals_provider.dart';
 
-/// State cho alerts
 class AlertsState {
   final List<AlertModel> alerts;
   final bool isLoading;
@@ -36,18 +34,15 @@ class AlertsState {
   }
 }
 
-/// Notifier quản lý alerts
 class AlertsNotifier extends StateNotifier<AlertsState> {
-  final MqttService _mqttService;
   final ApiService _apiService;
   final StorageService _storageService;
   final MockDataService _mockDataService;
   final bool _isDemoMode;
-  StreamSubscription? _mqttSubscription;
   StreamSubscription? _mockSubscription;
+  Timer? _apiPollingTimer;
 
   AlertsNotifier(
-    this._mqttService,
     this._apiService,
     this._storageService,
     this._mockDataService, {
@@ -56,19 +51,20 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
         super(const AlertsState()) {
     if (_isDemoMode) {
       _listenToMockAlerts();
+      loadAlerts();
     } else {
-      _listenToMqttAlerts();
+      loadAlerts();
+      _apiPollingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        loadAlerts(showLoading: false);
+      });
     }
-    loadAlerts();
   }
 
-  /// Subscribe Mock alert stream
   void _listenToMockAlerts() {
     _mockSubscription = _mockDataService.alertStream.listen(
       (json) {
         try {
-          final alert = AlertModel.fromJson(json);
-          _addAlert(alert);
+          _mergeAlerts([AlertModel.fromJson(json)]);
         } catch (e) {
           print('Error parsing mock alert: $e');
         }
@@ -76,70 +72,45 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
     );
   }
 
-  /// Subscribe MQTT alert stream
-  void _listenToMqttAlerts() {
-    _mqttSubscription = _mqttService.alertStream.listen(
-      (json) {
-        try {
-          final alert = AlertModel.fromJson(json);
-          _addAlert(alert);
-        } catch (e) {
-          print('Error parsing MQTT alert: $e');
-        }
-      },
-    );
-  }
-
-  /// Thêm alert mới vào đầu list
-  void _addAlert(AlertModel alert) {
-    final updatedAlerts = [alert, ...state.alerts];
-    // Giữ tối đa 200 alerts
-    if (updatedAlerts.length > 200) {
-      updatedAlerts.removeRange(200, updatedAlerts.length);
+  void _mergeAlerts(List<AlertModel> incoming) {
+    final byId = <String, AlertModel>{
+      for (final alert in state.alerts) alert.id: alert,
+    };
+    for (final alert in incoming) {
+      final wasRead = _storageService.isAlertRead(alert.id) ||
+          (byId[alert.id]?.isRead ?? false);
+      byId[alert.id] = alert.copyWith(isRead: wasRead);
     }
-
-    final unreadCount = updatedAlerts.where((a) => !a.isRead).length;
-
+    final updated = byId.values.toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    if (updated.length > 200) {
+      updated.removeRange(200, updated.length);
+    }
     state = state.copyWith(
-      alerts: updatedAlerts,
-      unreadCount: unreadCount,
+      alerts: updated,
+      isLoading: false,
+      unreadCount: updated.where((a) => !a.isRead).length,
+      error: null,
     );
   }
 
-  /// Tải alerts từ API (hoặc mock data)
-  Future<void> loadAlerts({int limit = 50}) async {
-    state = state.copyWith(isLoading: true);
+  Future<void> loadAlerts({int limit = 80, bool showLoading = true}) async {
+    if (showLoading) {
+      state = state.copyWith(isLoading: true);
+    }
     try {
       List<AlertModel> alerts;
-      
       if (_isDemoMode) {
-        // Load mock history
         final data = _mockDataService.generateAlertHistory(count: 15);
         alerts = data.map((json) => AlertModel.fromJson(json)).toList();
       } else {
-        // Load real API
         final data = await _apiService.getAlerts(limit: limit);
-        alerts = data.map((json) => AlertModel.fromJson(json as Map<String, dynamic>)).toList();
+        alerts = data
+            .whereType<Map<String, dynamic>>()
+            .map(AlertModel.fromJson)
+            .toList();
       }
-
-      // Đánh dấu đã đọc nếu có trong local storage
-      final markedAlerts = alerts.map((a) {
-        if (_storageService.isAlertRead(a.id)) {
-          return a.copyWith(isRead: true);
-        }
-        return a;
-      }).toList();
-
-      // Sort by timestamp descending (mới nhất trước)
-      markedAlerts.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-      final unreadCount = markedAlerts.where((a) => !a.isRead).length;
-
-      state = state.copyWith(
-        alerts: markedAlerts,
-        isLoading: false,
-        unreadCount: unreadCount,
-      );
+      _mergeAlerts(alerts);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -148,7 +119,6 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
     }
   }
 
-  /// Đánh dấu alert đã đọc
   Future<void> markAsRead(String alertId) async {
     await _storageService.markAlertAsRead(alertId);
     final updatedAlerts = state.alerts.map((a) {
@@ -156,15 +126,12 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
       return a;
     }).toList();
 
-    final unreadCount = updatedAlerts.where((a) => !a.isRead).length;
-
     state = state.copyWith(
       alerts: updatedAlerts,
-      unreadCount: unreadCount,
+      unreadCount: updatedAlerts.where((a) => !a.isRead).length,
     );
   }
 
-  /// Đánh dấu tất cả đã đọc
   Future<void> markAllAsRead() async {
     for (final a in state.alerts) {
       await _storageService.markAlertAsRead(a.id);
@@ -172,13 +139,9 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
     final updatedAlerts =
         state.alerts.map((a) => a.copyWith(isRead: true)).toList();
 
-    state = state.copyWith(
-      alerts: updatedAlerts,
-      unreadCount: 0,
-    );
+    state = state.copyWith(alerts: updatedAlerts, unreadCount: 0);
   }
 
-  /// Lọc alerts theo thời gian
   List<AlertModel> getNewAlerts() {
     return state.alerts.where((a) => !a.isRead).toList();
   }
@@ -199,34 +162,26 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
 
   @override
   void dispose() {
-    _mqttSubscription?.cancel();
     _mockSubscription?.cancel();
+    _apiPollingTimer?.cancel();
     super.dispose();
   }
 }
 
-// ─── Providers ───
-// storageServiceProvider đã khai báo trong vitals_provider.dart
-
-/// Provider cho AlertsNotifier
 final alertsProvider =
     StateNotifierProvider<AlertsNotifier, AlertsState>((ref) {
-  final mqttService = ref.watch(mqttServiceProvider);
   final apiService = ref.watch(apiServiceProvider);
   final storageService = ref.watch(storageServiceProvider);
   final mockDataService = ref.watch(mockDataServiceProvider);
-  final isDemo = storageService.isDemoMode;
-  
+
   return AlertsNotifier(
-    mqttService, 
-    apiService, 
-    storageService, 
+    apiService,
+    storageService,
     mockDataService,
-    isDemoMode: isDemo,
+    isDemoMode: storageService.isDemoMode,
   );
 });
 
-/// Provider tiện ích: số alerts chưa đọc
 final unreadAlertsCountProvider = Provider<int>((ref) {
   return ref.watch(alertsProvider).unreadCount;
 });

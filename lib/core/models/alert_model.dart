@@ -23,17 +23,25 @@ class AlertModel {
   });
 
   factory AlertModel.fromJson(Map<String, dynamic> json) {
+    final eventType = json['event_type'] as String?;
+    final severity = json['severity'] as String?;
     return AlertModel(
-      id: json['id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id: json['id'] as String? ??
+          json['event_id'] as String? ??
+          '${json['timestamp']}_${eventType ?? json['type'] ?? 'alert'}',
       timestamp: json['timestamp'] != null
           ? DateTime.parse(json['timestamp'] as String)
           : DateTime.now(),
-      type: json['type'] as String? ?? 'UNKNOWN',
-      level: json['level'] as String? ?? 'WATCH',
-      detail: json['detail'] as String? ?? '',
-      hrBpm: (json['hr_bpm'] as num?)?.toDouble(),
+      type: json['type'] as String? ?? eventType ?? 'UNKNOWN',
+      level: _mapAlertLevel(json['level'] as String? ?? severity ?? 'WATCH'),
+      detail: json['detail'] as String? ??
+          json['message'] as String? ??
+          json['label'] as String? ??
+          '',
+      hrBpm: (json['heart_rate_bpm'] as num?)?.toDouble() ??
+          (json['hr_bpm'] as num?)?.toDouble(),
       rmssdMs: (json['rmssd_ms'] as num?)?.toDouble(),
-      activity: json['activity'] as String?,
+      activity: json['activity_state'] as String? ?? json['activity'] as String?,
       isRead: json['is_read'] as bool? ?? false,
     );
   }
@@ -121,5 +129,24 @@ class AlertModel {
     if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
     if (diff.inHours < 24) return '${diff.inHours} giờ trước';
     return '${diff.inDays} ngày trước';
+  }
+}
+
+String _mapAlertLevel(String value) {
+  switch (value.toLowerCase()) {
+    case 'critical':
+      return 'CRITICAL';
+    case 'high':
+    case 'alert':
+      return 'ALERT';
+    case 'medium':
+    case 'watch':
+    case 'unknown':
+      return 'WATCH';
+    case 'low':
+    case 'normal':
+    case 'safe':
+    default:
+      return 'SAFE';
   }
 }

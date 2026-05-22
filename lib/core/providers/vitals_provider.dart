@@ -1,23 +1,25 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/health_report_model.dart';
 import '../models/vitals_model.dart';
-import '../services/mqtt_service.dart';
 import '../services/api_service.dart';
-import '../services/websocket_service.dart';
-import '../services/storage_service.dart';
 import '../services/mock_data_service.dart';
+import '../services/mqtt_service.dart';
+import '../services/storage_service.dart';
+import '../services/websocket_service.dart';
 
-/// State cho vitals data
 class VitalsState {
   final VitalsModel? currentVitals;
-  final List<VitalsModel> recentHistory; // 30 phút gần nhất cho mini chart
+  final HealthReportModel? healthReport;
+  final List<VitalsModel> recentHistory;
   final bool isLoading;
   final String? error;
   final DateTime? lastUpdated;
-  final bool isTimedOut; // > 60 giây không nhận data
+  final bool isTimedOut;
 
   const VitalsState({
     this.currentVitals,
+    this.healthReport,
     this.recentHistory = const [],
     this.isLoading = false,
     this.error,
@@ -27,6 +29,7 @@ class VitalsState {
 
   VitalsState copyWith({
     VitalsModel? currentVitals,
+    HealthReportModel? healthReport,
     List<VitalsModel>? recentHistory,
     bool? isLoading,
     String? error,
@@ -35,6 +38,7 @@ class VitalsState {
   }) {
     return VitalsState(
       currentVitals: currentVitals ?? this.currentVitals,
+      healthReport: healthReport ?? this.healthReport,
       recentHistory: recentHistory ?? this.recentHistory,
       isLoading: isLoading ?? this.isLoading,
       error: error,
@@ -45,19 +49,20 @@ class VitalsState {
 }
 
 class VitalsNotifier extends StateNotifier<VitalsState> {
-  final MqttService _mqttService;
   final ApiService _apiService;
   final WebSocketService _wsService;
   final MockDataService _mockDataService;
   final bool _isRemoteMode;
   final bool _isDemoMode;
-  StreamSubscription? _mqttSubscription;
+
   StreamSubscription? _wsSubscription;
   StreamSubscription? _mockSubscription;
   Timer? _timeoutTimer;
+  Timer? _apiPollingTimer;
+  Timer? _reportTimer;
+  bool _isRefreshing = false;
 
   VitalsNotifier(
-    this._mqttService,
     this._apiService,
     this._wsService,
     this._mockDataService, {
@@ -69,46 +74,27 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     if (_isDemoMode) {
       _listenToMockData();
       _mockDataService.start();
-    } else if (_isRemoteMode) {
-      _listenToWebSocket();
     } else {
-      _listenToMqtt();
+      if (_isRemoteMode) {
+        _listenToWebSocket();
+      }
+      _startApiPolling();
     }
     _startTimeoutCheck();
   }
 
-  /// Subscribe Mock vitals stream (demo mode)
   void _listenToMockData() {
     _mockSubscription = _mockDataService.vitalsStream.listen(
       (json) {
         try {
-          final vitals = VitalsModel.fromJson(json);
-          _updateVitals(vitals);
+          _updateVitals(VitalsModel.fromJson(json));
         } catch (e) {
-          state = state.copyWith(error: 'Lỗi parse dữ liệu: $e');
+          state = state.copyWith(error: 'Lỗi parse dữ liệu demo: $e');
         }
       },
     );
   }
 
-  /// Subscribe MQTT vitals stream (cho người đeo — local)
-  void _listenToMqtt() {
-    _mqttSubscription = _mqttService.vitalsStream.listen(
-      (json) {
-        try {
-          final vitals = VitalsModel.fromJson(json);
-          _updateVitals(vitals);
-        } catch (e) {
-          state = state.copyWith(error: 'Lỗi parse dữ liệu: $e');
-        }
-      },
-      onError: (e) {
-        state = state.copyWith(error: 'Lỗi MQTT: $e');
-      },
-    );
-  }
-
-  /// Subscribe WebSocket vitals stream (cho người giám sát — remote)
   void _listenToWebSocket() {
     _wsSubscription = _wsService.vitalsStream.listen(
       (json) {
@@ -116,21 +102,29 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
           final vitals = VitalsModel.fromJson(json);
           _updateVitals(vitals);
         } catch (e) {
-          state = state.copyWith(error: 'Lỗi parse dữ liệu: $e');
+          state = state.copyWith(error: 'Lỗi parse WebSocket: $e');
         }
       },
       onError: (e) {
         state = state.copyWith(error: 'Lỗi WebSocket: $e');
       },
     );
+    _wsService.connect();
   }
 
-  /// Cập nhật vitals mới (chung cho cả 2 mode)
+  void _startApiPolling() {
+    refresh();
+    _apiPollingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _refreshLatestVitals();
+    });
+    _reportTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _refreshHealthReport(patientId: state.currentVitals?.patientId);
+    });
+  }
+
   void _updateVitals(VitalsModel vitals) {
     final now = DateTime.now();
     final cutoff = now.subtract(const Duration(minutes: 30));
-
-    // Thêm vào recent history và lọc bỏ dữ liệu cũ > 30 phút
     final updatedHistory = [...state.recentHistory, vitals]
         .where((v) => v.timestamp.isAfter(cutoff))
         .toList();
@@ -145,7 +139,6 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     );
   }
 
-  /// Kiểm tra timeout (> 60 giây không có data)
   void _startTimeoutCheck() {
     _timeoutTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (state.lastUpdated != null) {
@@ -157,13 +150,36 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     });
   }
 
-  /// Pull-to-refresh: fetch từ API
+  Future<void> _refreshLatestVitals() async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
+    try {
+      final json = await _apiService.getLatestVitals();
+      _updateVitals(VitalsModel.fromJson(json));
+    } catch (e) {
+      state = state.copyWith(error: 'Không thể tải dữ liệu realtime: $e');
+    } finally {
+      _isRefreshing = false;
+    }
+  }
+
+  Future<void> _refreshHealthReport({String? patientId}) async {
+    try {
+      final json = await _apiService.getHealthReport(patientId: patientId);
+      state = state.copyWith(healthReport: HealthReportModel.fromJson(json));
+    } catch (e) {
+      state = state.copyWith(error: 'Không thể tải báo cáo sức khỏe: $e');
+    }
+  }
+
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true);
     try {
       final json = await _apiService.getLatestVitals();
       final vitals = VitalsModel.fromJson(json);
       _updateVitals(vitals);
+      await _refreshHealthReport(patientId: vitals.patientId);
+      state = state.copyWith(isLoading: false);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -174,102 +190,85 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
 
   @override
   void dispose() {
-    _mqttSubscription?.cancel();
     _wsSubscription?.cancel();
     _mockSubscription?.cancel();
     _timeoutTimer?.cancel();
+    _apiPollingTimer?.cancel();
+    _reportTimer?.cancel();
     super.dispose();
   }
 }
 
-// ═══════════════════════════════════════════
-// Providers
-// ═══════════════════════════════════════════
-
-/// Provider cho StorageService (khai báo ở đây để dùng chung)
 final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();
 });
 
-/// Provider cho MqttService (singleton)
 final mqttServiceProvider = Provider<MqttService>((ref) {
   final service = MqttService();
   ref.onDispose(() => service.dispose());
   return service;
 });
 
-/// Provider cho ApiService (singleton)
 final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService();
+  final storage = ref.watch(storageServiceProvider);
+  return ApiService()..configure(baseUrl: storage.apiBaseUrl);
 });
 
-/// Provider cho WebSocketService (singleton)
 final webSocketServiceProvider = Provider<WebSocketService>((ref) {
-  final service = WebSocketService();
+  final storage = ref.watch(storageServiceProvider);
+  final service = WebSocketService()..configure(serverUrl: storage.apiBaseUrl);
   ref.onDispose(() => service.dispose());
   return service;
 });
 
-/// Provider cho user role — đọc từ storage
 final userRoleProvider = Provider<String>((ref) {
   final storage = ref.watch(storageServiceProvider);
   return storage.userRole;
 });
 
-/// Provider kiểm tra có phải caregiver (remote mode) không
 final isRemoteModeProvider = Provider<bool>((ref) {
   final storage = ref.watch(storageServiceProvider);
   return storage.isCaregiver;
 });
 
-/// Provider cho MQTT connection state
 final mqttConnectionStateProvider =
     StreamProvider<MqttConnectionState>((ref) {
   final mqttService = ref.watch(mqttServiceProvider);
   return mqttService.connectionStateStream;
 });
 
-/// Provider cho WebSocket connection state
 final wsConnectionStateProvider =
     StreamProvider<WsConnectionState>((ref) {
   final wsService = ref.watch(webSocketServiceProvider);
   return wsService.connectionStateStream;
 });
 
-/// Provider cho MockDataService (singleton)
 final mockDataServiceProvider = Provider<MockDataService>((ref) {
   final service = MockDataService();
   ref.onDispose(() => service.dispose());
   return service;
 });
 
-/// Provider cho vitals state — tự chọn source dựa vào role và demo mode
 final vitalsProvider =
     StateNotifierProvider<VitalsNotifier, VitalsState>((ref) {
-  final mqttService = ref.watch(mqttServiceProvider);
   final apiService = ref.watch(apiServiceProvider);
   final wsService = ref.watch(webSocketServiceProvider);
   final mockDataService = ref.watch(mockDataServiceProvider);
   final storage = ref.watch(storageServiceProvider);
-  final isRemote = storage.isCaregiver;
-  final isDemo = storage.isDemoMode;
 
   return VitalsNotifier(
-    mqttService,
     apiService,
     wsService,
     mockDataService,
-    isRemoteMode: isRemote,
-    isDemoMode: isDemo,
+    isRemoteMode: storage.isCaregiver,
+    isDemoMode: storage.isDemoMode,
   );
 });
 
-/// Provider tiện ích: chỉ lấy HR hiện tại
 final currentHrProvider = Provider<double>((ref) {
   return ref.watch(vitalsProvider).currentVitals?.hrBpm ?? 0.0;
 });
 
-/// Provider tiện ích: chỉ lấy alert level hiện tại
 final currentAlertLevelProvider = Provider<String>((ref) {
   return ref.watch(vitalsProvider).currentVitals?.alertLevel ?? 'SAFE';
 });

@@ -50,7 +50,8 @@ void main() {
     });
 
     test('giá trị mặc định hợp lý', () {
-      expect(storage.gatewayIp, '192.168.1.100');
+      expect(storage.gatewayIp, '127.0.0.1');
+      expect(storage.isDemoMode, isFalse);
       expect(storage.mqttPort, 1883);
       expect(storage.autoReconnect, isTrue);
       expect(storage.isDarkMode, isFalse);
