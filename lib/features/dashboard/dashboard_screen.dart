@@ -36,11 +36,22 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        titleSpacing: 0,
         title: Row(
           children: [
-            Text(displayName),
+            Flexible(
+              flex: 3,
+              child: Text(
+                displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             const SizedBox(width: 8),
-            const ConnectionStatusWidget(),
+            const Flexible(
+              flex: 2,
+              child: ConnectionStatusWidget(),
+            ),
           ],
         ),
         actions: [
