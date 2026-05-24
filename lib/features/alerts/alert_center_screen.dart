@@ -13,9 +13,10 @@ class AlertCenterScreen extends ConsumerStatefulWidget {
   ConsumerState<AlertCenterScreen> createState() => _AlertCenterScreenState();
 }
 
-class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen> with SingleTickerProviderStateMixin {
+class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _ignoreWatch = false;
+  bool _ignoreWatch = true;
 
   @override
   void initState() {
@@ -43,15 +44,23 @@ class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen> with Sing
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: AppColors.critical, borderRadius: BorderRadius.circular(12)),
-                child: Text('${alertsState.unreadCount}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                decoration: BoxDecoration(
+                    color: AppColors.critical,
+                    borderRadius: BorderRadius.circular(12)),
+                child: Text('${alertsState.unreadCount}',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
               ),
             ],
           ],
         ),
         actions: [
           if (alertsState.unreadCount > 0)
-            TextButton(onPressed: () => notifier.markAllAsRead(), child: const Text('Đọc hết', style: TextStyle(fontSize: 13))),
+            TextButton(
+                onPressed: () => notifier.markAllAsRead(),
+                child: const Text('Đọc hết', style: TextStyle(fontSize: 13))),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(kTextTabBarHeight + 48),
@@ -67,11 +76,13 @@ class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen> with Sing
               ),
               Container(
                 color: Theme.of(context).cardColor,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    const Text('Bỏ qua cảnh báo "THEO DÕI"', style: TextStyle(fontSize: 13)),
+                    const Text('Bỏ qua cảnh báo "THEO DÕI"',
+                        style: TextStyle(fontSize: 13)),
                     Switch(
                       value: _ignoreWatch,
                       onChanged: (val) => setState(() => _ignoreWatch = val),
@@ -100,8 +111,8 @@ class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen> with Sing
       return const Center(child: CircularProgressIndicator());
     }
 
-    final alerts = _ignoreWatch 
-        ? allAlerts.where((a) => a.level.toUpperCase() != 'WATCH').toList() 
+    final alerts = _ignoreWatch
+        ? allAlerts.where((a) => a.level.toUpperCase() != 'WATCH').toList()
         : allAlerts;
 
     if (alerts.isEmpty) {
@@ -109,23 +120,38 @@ class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen> with Sing
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_outline, size: 64, color: AppColors.safe.withValues(alpha: 0.5)),
+            Icon(Icons.check_circle_outline,
+                size: 64, color: AppColors.safe.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            const Text(AppStrings.noAlerts, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            const Text(AppStrings.noAlerts,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
-            Text(AppStrings.noAlertsDesc, style: TextStyle(color: AppColors.textSecondary)),
+            Text(AppStrings.noAlertsDesc,
+                style: TextStyle(color: AppColors.textSecondary)),
           ],
         ),
       );
+    }
+
+    final grouped = _groupBySeverity(alerts);
+    final sectionedItems = <Object>[];
+    for (final entry in grouped.entries) {
+      if (entry.value.isEmpty) continue;
+      sectionedItems.add(entry.key);
+      sectionedItems.addAll(entry.value);
     }
 
     return RefreshIndicator(
       onRefresh: () => ref.read(alertsProvider.notifier).loadAlerts(),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: alerts.length,
+        itemCount: sectionedItems.length,
         itemBuilder: (context, index) {
-          final alert = alerts[index];
+          final item = sectionedItems[index];
+          if (item is String) {
+            return _AlertSectionHeader(title: item);
+          }
+          final alert = item as AlertModel;
           return Dismissible(
             key: Key(alert.id),
             direction: DismissDirection.endToStart,
@@ -135,10 +161,45 @@ class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen> with Sing
               color: AppColors.safe,
               child: const Icon(Icons.check, color: Colors.white),
             ),
-            onDismissed: (_) => ref.read(alertsProvider.notifier).markAsRead(alert.id),
+            onDismissed: (_) =>
+                ref.read(alertsProvider.notifier).markAsRead(alert.id),
             child: AlertItemWidget(alert: alert),
           );
         },
+      ),
+    );
+  }
+
+  Map<String, List<AlertModel>> _groupBySeverity(List<AlertModel> alerts) {
+    final groups = <String, List<AlertModel>>{
+      'Can ho tro ngay': [],
+      'Nen trao doi y te': [],
+      'Can theo doi': [],
+      'Thong tin': [],
+    };
+    for (final alert in alerts) {
+      groups[alert.severityGroup]!.add(alert);
+    }
+    return groups;
+  }
+}
+
+class _AlertSectionHeader extends StatelessWidget {
+  final String title;
+
+  const _AlertSectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

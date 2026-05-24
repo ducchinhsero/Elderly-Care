@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:elder_health_monitor/core/models/health_report_model.dart';
+import 'package:elder_health_monitor/core/models/guided_baseline_model.dart';
 import 'package:elder_health_monitor/core/models/vitals_model.dart';
 import 'package:elder_health_monitor/core/models/alert_model.dart';
 
@@ -28,7 +29,12 @@ void main() {
         },
         'anomaly': {'label': 'normal', 'value': 0},
         'signal_quality': {'label': 'good', 'score': 0.95},
-        'risk': {'level': 'medium', 'score': 0.4, 'reason': 'Repeated rhythm event.'},
+        'hrv': {'rmssd_ms': 27.4},
+        'risk': {
+          'level': 'medium',
+          'score': 0.4,
+          'reason': 'Repeated rhythm event.'
+        },
         'sensor_context': {
           'activity_state': 'REST',
           'fall': {'fall_candidate': false},
@@ -44,8 +50,23 @@ void main() {
     expect(vitals.emotion, 'stressed');
     expect(vitals.rhythmLabel, 'possible_afib');
     expect(vitals.afibProbability, 0.42);
+    expect(vitals.rmssdMs, 27.4);
     expect(vitals.ectopyLabel, 'pvc');
     expect(vitals.clinicalAlerts, isNotEmpty);
+  });
+
+  test('VitalsModel maps fall candidate to urgent alert', () {
+    final vitals = VitalsModel.fromJson({
+      'patient_id': 'edge-01',
+      'heart_rate_bpm': 91.0,
+      'sensor_context': {
+        'fall': {'fall_candidate': true},
+      },
+      'alert_level': 'normal',
+    });
+
+    expect(vitals.alertLevel, 'ALERT');
+    expect(vitals.clinicalAlerts.first.type, 'fall_candidate');
   });
 
   test('HealthReportModel parses three time layers', () {
@@ -56,28 +77,82 @@ void main() {
         'realtime': {
           'title': 'Realtime',
           'window': {'mode': 'latest_window', 'minutes': 5},
-          'overall': {'level': 'medium', 'score': 0.5, 'summary': 'Current alert.'},
+          'overall': {
+            'level': 'medium',
+            'score': 0.5,
+            'summary': 'Current alert.'
+          },
           'findings': [],
         },
         'daily': {
           'period': {'mode': 'rolling_24h', 'hours': 24},
-          'overall': {'level': 'high', 'score': 0.8, 'summary': 'Daily pattern.'},
+          'overall': {
+            'level': 'high',
+            'score': 0.8,
+            'summary': 'Daily pattern.'
+          },
           'findings': [
-            {'type': 'afib_suspicion', 'level': 'high', 'title': 'Possible AFib'}
+            {
+              'type': 'afib_suspicion',
+              'level': 'high',
+              'title': 'Possible AFib'
+            }
           ],
         },
         'long_term': {
-          'window': {'mode': 'rolling_days', 'days': 7, 'prediction_count': 120},
+          'window': {
+            'mode': 'rolling_days',
+            'days': 7,
+            'prediction_count': 120
+          },
           'overall': {'level': 'low', 'score': 0.2, 'summary': 'Stable.'},
           'findings': [],
+        },
+      },
+      'personal_baseline': {
+        'calibrated': true,
+        'calibration': {
+          'status': 'warming_up',
+          'day_count': 3,
+          'target_days': 7,
+          'progress_ratio': 0.43,
+          'data_quality_ok': true,
+        },
+        'comparisons': {
+          'mean_hr_delta_bpm': 4.2,
+          'resting_hr_delta_bpm': 2.1,
+          'af_suspicion_ratio_delta': 0.04,
+          'ectopy_ratio_delta': 0.01,
+          'abnormal_ratio_delta': 0.0,
         },
       },
     });
 
     expect(report.overallLevel, 'high');
-    expect(report.realtime.windowLabel, 'Cửa sổ mới nhất');
+    expect(report.userLevelText, 'Nen trao doi voi nhan vien y te');
+    expect(report.realtime.windowLabel, 'Cua so moi nhat');
     expect(report.daily.findings.first.type, 'afib_suspicion');
-    expect(report.longTerm.windowLabel, contains('7 ngày'));
+    expect(report.daily.findings.first.displayTitle,
+        'Nghi ngo rung nhi/roi loan nhip');
+    expect(report.longTerm.windowLabel, contains('7 ngay'));
+    expect(report.personalBaseline.status, 'warming_up');
+    expect(report.personalBaseline.comparisonRows, isNotEmpty);
+  });
+
+  test('HealthReportModel tolerates missing findings and baseline', () {
+    final report = HealthReportModel.fromJson({
+      'overall': {'level': 'unknown'},
+      'layers': {
+        'daily': {
+          'period': {'mode': 'rolling_24h', 'hours': 24},
+          'overall': {'level': 'low'},
+        },
+      },
+    });
+
+    expect(report.daily.findings, isEmpty);
+    expect(report.personalBaseline.calibrated, isFalse);
+    expect(healthLevelText('medium'), 'Can theo doi');
   });
 
   test('AlertModel parses event timeline payload', () {
@@ -96,5 +171,44 @@ void main() {
     expect(alert.level, 'WATCH');
     expect(alert.hrBpm, 112.0);
     expect(alert.activity, 'REST');
+  });
+
+  test('GuidedBaselineStatus parses guided session payload', () {
+    final status = GuidedBaselineStatus.fromJson({
+      'patient_id': 'polar_h10',
+      'status': 'warming_up',
+      'day_count': 2,
+      'target_days': 7,
+      'progress_ratio': 0.2857,
+      'segment_plan': [
+        {
+          'segment_type': 'REST',
+          'expected_activity': 'REST',
+          'duration_seconds': 300,
+          'instruction': 'Sit quietly.'
+        }
+      ],
+      'latest_session': {
+        'session_id': 'session-1',
+        'status': 'in_progress',
+        'day_index': 3,
+        'target_days': 7,
+        'segments': [
+          {
+            'segment_type': 'REST',
+            'status': 'completed',
+            'duration_seconds': 300,
+            'valid_window_count': 4,
+            'rejected_window_count': 1,
+            'rejection_reasons': []
+          }
+        ],
+      },
+    });
+
+    expect(status.patientId, 'polar_h10');
+    expect(status.segmentPlan.first.title, 'Nghi yen');
+    expect(status.latestSession?.sessionId, 'session-1');
+    expect(status.latestSession?.segments.first.validWindowCount, 4);
   });
 }

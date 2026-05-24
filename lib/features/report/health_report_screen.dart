@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../core/constants/app_strings.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_strings.dart';
+import '../../core/models/health_report_model.dart';
+import '../../core/models/history_model.dart';
 import '../../core/providers/history_provider.dart';
 import '../../core/providers/vitals_provider.dart';
-import '../../core/models/history_model.dart';
 import 'widgets/daily_summary_widget.dart';
 import 'widgets/insight_card_widget.dart';
 
@@ -15,7 +16,8 @@ class HealthReportScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historyState = ref.watch(historyProvider);
-    final healthReport = ref.watch(vitalsProvider).healthReport;
+    final vitalsState = ref.watch(vitalsProvider);
+    final healthReport = vitalsState.healthReport;
     final stats = historyState.historyData?.stats;
     final score = _calculateScore(stats);
 
@@ -23,54 +25,77 @@ class HealthReportScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text(AppStrings.healthReport),
         actions: [
-          IconButton(icon: const Icon(Icons.share_outlined), onPressed: () => _share(context, stats, score)),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.read(vitalsProvider.notifier).refresh(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            onPressed: () => _share(context, healthReport, stats, score),
+          ),
         ],
       ),
-      body: historyState.isLoading
+      body: historyState.isLoading && healthReport == null
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // Score circle
-                  if (healthReport != null) ...[
-                    _LayeredReportCard(report: healthReport),
-                    const SizedBox(height: 16),
-                  ],
-
-                  DailySummaryWidget(score: score, stats: stats),
-                  const SizedBox(height: 16),
-
-                  // Insights
-                  InsightCardWidget(stats: stats),
-                  const SizedBox(height: 16),
-
-                  // Comparison cards
-                  _ComparisonSection(stats: stats),
-                  const SizedBox(height: 16),
-
-                  // Export buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _exportPdf(context),
-                          icon: const Icon(Icons.picture_as_pdf),
-                          label: const Text(AppStrings.exportPdf),
-                        ),
+          : RefreshIndicator(
+              onRefresh: () => ref.read(vitalsProvider.notifier).refresh(),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (vitalsState.error != null)
+                      _InfoBanner(
+                        icon: Icons.info_outline,
+                        text: vitalsState.error!,
+                        color: AppColors.watchDark,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _share(context, stats, score),
-                          icon: const Icon(Icons.share),
-                          label: const Text(AppStrings.share),
-                        ),
+                    if (healthReport == null)
+                      const _EmptyReportCard()
+                    else ...[
+                      _OverallAssessmentCard(report: healthReport),
+                      const SizedBox(height: 16),
+                      _TimeLayerCard(report: healthReport),
+                      const SizedBox(height: 16),
+                      _FindingsCard(report: healthReport),
+                      const SizedBox(height: 16),
+                      _PersonalBaselineCard(
+                        baseline: healthReport.personalBaseline,
                       ),
+                      const SizedBox(height: 16),
+                      _DisclaimerCard(disclaimer: healthReport.disclaimer),
+                      const SizedBox(height: 16),
                     ],
-                  ),
-                  const SizedBox(height: 32),
-                ],
+                    DailySummaryWidget(score: score, stats: stats),
+                    const SizedBox(height: 16),
+                    InsightCardWidget(stats: stats),
+                    const SizedBox(height: 16),
+                    _ComparisonSection(stats: stats),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _exportPdf(context),
+                            icon: const Icon(Icons.picture_as_pdf),
+                            label: const Text(AppStrings.exportPdf),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () =>
+                                _share(context, healthReport, stats, score),
+                            icon: const Icon(Icons.share),
+                            label: const Text(AppStrings.share),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
             ),
     );
@@ -79,33 +104,612 @@ class HealthReportScreen extends ConsumerWidget {
   int _calculateScore(HistoryStats? stats) {
     if (stats == null) return 0;
     double score = 0;
-    // % thời gian HR bình thường (max 40 điểm)
     score += (stats.normalPercent / 100) * 40;
-    // RMSSD avg so với baseline 25ms (max 30 điểm)
     final rmssdScore = (stats.rmssdAvg / 30).clamp(0, 1) * 30;
     score += rmssdScore;
-    // Ít alerts (max 30 điểm)
     final alertPenalty = (stats.alertCount * 5).clamp(0, 30);
     score += (30 - alertPenalty);
     return score.round().clamp(0, 100);
   }
 
   void _exportPdf(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tính năng xuất PDF sẽ được cập nhật')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Tinh nang xuat PDF se duoc cap nhat')),
+    );
   }
 
-  void _share(BuildContext context, HistoryStats? stats, int score) {
-    if (stats == null) return;
-    final text = '''
-🏥 Báo cáo sức khỏe - ${DateTime.now().toString().substring(0, 10)}
-━━━━━━━━━━━━━━━
-📊 Điểm sức khỏe: $score/100
-❤️ Nhịp tim TB: ${stats.hrAvg.toStringAsFixed(0)} BPM
-📈 RMSSD TB: ${stats.rmssdAvg.toStringAsFixed(1)} ms
-⚠️ Số cảnh báo: ${stats.alertCount}
-✅ Thời gian bình thường: ${stats.normalPercent.toStringAsFixed(0)}%
-''';
-    Share.share(text, subject: AppStrings.healthReport);
+  void _share(
+    BuildContext context,
+    HealthReportModel? report,
+    HistoryStats? stats,
+    int score,
+  ) {
+    final now = DateTime.now().toString().substring(0, 10);
+    final buffer = StringBuffer()
+      ..writeln('Bao cao suc khoe - $now')
+      ..writeln('Diem tong quan: $score/100');
+
+    if (report != null) {
+      buffer
+        ..writeln('Muc hien tai: ${report.userLevelText}')
+        ..writeln(report.overallSummary.isEmpty
+            ? report.userActionText
+            : report.overallSummary)
+        ..writeln('Khuyen nghi: ${report.userActionText}');
+      if (report.hasFindings) {
+        buffer.writeln('Bat thuong noi bat:');
+        for (final finding in report.importantFindings.take(3)) {
+          buffer.writeln('- ${finding.displayTitle}: ${finding.actionText}');
+        }
+      }
+    }
+
+    if (stats != null) {
+      buffer
+        ..writeln('Nhip tim TB: ${stats.hrAvg.toStringAsFixed(0)} BPM')
+        ..writeln('So canh bao: ${stats.alertCount}')
+        ..writeln(
+          'Thoi gian binh thuong: ${stats.normalPercent.toStringAsFixed(0)}%',
+        );
+    }
+
+    buffer.writeln(
+        'Luu y: day la sang loc/nghi ngo nguy co, khong phai chan doan y khoa.');
+    Share.share(buffer.toString(), subject: AppStrings.healthReport);
+  }
+}
+
+class _OverallAssessmentCard extends StatelessWidget {
+  final HealthReportModel report;
+
+  const _OverallAssessmentCard({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _levelColor(report.overallLevel);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.health_and_safety_outlined, color: color),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tong quan suc khoe',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        report.userLevelText,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _LevelChip(level: report.overallLevel),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              report.overallSummary.isEmpty
+                  ? 'He thong dang tong hop trang thai tu du lieu realtime, 24 gio va 7 ngay.'
+                  : report.overallSummary,
+              style: const TextStyle(height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            _ActionBox(text: report.userActionText, level: report.overallLevel),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TimeLayerCard extends StatelessWidget {
+  final HealthReportModel report;
+
+  const _TimeLayerCard({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionTitle(
+              icon: Icons.timeline_outlined,
+              title: 'Bao cao theo thoi gian',
+              subtitle: 'Tach rieng hien tai, 24 gio va xu huong nhieu ngay.',
+            ),
+            const SizedBox(height: 12),
+            _LayerRow(label: 'Hien tai', layer: report.realtime),
+            const Divider(height: 18),
+            _LayerRow(label: '24 gio gan nhat', layer: report.daily),
+            const Divider(height: 18),
+            _LayerRow(label: '7 ngay gan nhat', layer: report.longTerm),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FindingsCard extends StatelessWidget {
+  final HealthReportModel report;
+
+  const _FindingsCard({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final findings = report.importantFindings;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionTitle(
+              icon: Icons.manage_search,
+              title: 'Bat thuong va khuyen nghi',
+              subtitle:
+                  'Cac muc nay la sang loc nguy co, khong phai chan doan.',
+            ),
+            const SizedBox(height: 12),
+            if (findings.isEmpty)
+              _InfoBanner(
+                icon: Icons.check_circle_outline,
+                text:
+                    'Chua phat hien mau bat thuong dang chu y trong du lieu hien co. Tiep tuc theo doi dinh ky.',
+                color: AppColors.safe,
+              )
+            else
+              ...findings.take(6).map((finding) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _FindingTile(finding: finding),
+                  )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonalBaselineCard extends StatelessWidget {
+  final PersonalBaseline baseline;
+
+  const _PersonalBaselineCard({required this.baseline});
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = baseline.comparisonRows;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionTitle(
+              icon: Icons.person_search_outlined,
+              title: 'So sanh voi muc nen ca nhan',
+              subtitle:
+                  'Dung de xem thay doi so voi binh thuong cua nguoi dung.',
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    baseline.statusText,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                _BaselineStatusChip(status: baseline.status),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              baseline.progressText,
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            if (rows.isEmpty)
+              Text(
+                'Chua du du lieu so sanh. Hay de thiet bi thu du lieu tot trong cac ngay dau su dung.',
+                style: TextStyle(color: AppColors.textSecondary),
+              )
+            else
+              ...rows.map((row) => _BaselineRow(row: row)),
+            const SizedBox(height: 8),
+            Text(
+              'Khong dung muc nen ca nhan de ket luan benh; chi dung de phat hien thay doi can theo doi.',
+              style: TextStyle(fontSize: 11, color: AppColors.textHint),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FindingTile extends StatelessWidget {
+  final HealthFinding finding;
+
+  const _FindingTile({required this.finding});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _levelColor(finding.level);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.20)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(_findingIcon(finding.type), color: color, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  finding.displayTitle,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              _LevelChip(level: finding.level),
+            ],
+          ),
+          if (finding.reason.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(finding.reason, style: const TextStyle(height: 1.35)),
+          ],
+          finalEvidenceText(finding.evidence).isEmpty
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    finalEvidenceText(finding.evidence),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+          const SizedBox(height: 8),
+          _ActionBox(text: finding.actionText, level: finding.level),
+        ],
+      ),
+    );
+  }
+}
+
+class _LayerRow extends StatelessWidget {
+  final String label;
+  final HealthLayer layer;
+
+  const _LayerRow({required this.label, required this.layer});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 104,
+          child:
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _LevelChip(level: layer.level),
+                  Text(
+                    layer.windowLabel,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                layer.summary.isEmpty
+                    ? (layer.findings.isEmpty
+                        ? 'Chua co phat hien dang chu y.'
+                        : layer.findings.first.displayTitle)
+                    : layer.summary,
+                style: const TextStyle(fontSize: 13, height: 1.35),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionBox extends StatelessWidget {
+  final String text;
+  final String level;
+
+  const _ActionBox({required this.text, required this.level});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _levelColor(level);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.medical_information_outlined, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const _SectionTitle({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppColors.primary, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BaselineRow extends StatelessWidget {
+  final BaselineComparison row;
+
+  const _BaselineRow({required this.row});
+
+  @override
+  Widget build(BuildContext context) {
+    final value = row.value ?? 0;
+    final color = value.abs() < (row.isPercent ? 0.01 : 3.0)
+        ? AppColors.safe
+        : value > 0
+            ? AppColors.watchDark
+            : AppColors.primary;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(child: Text(row.label)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                row.displayValue,
+                style: TextStyle(fontWeight: FontWeight.w800, color: color),
+              ),
+              Text(
+                row.interpretation,
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BaselineStatusChip extends StatelessWidget {
+  final String status;
+
+  const _BaselineStatusChip({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = status.toLowerCase() == 'ready'
+        ? AppColors.safe
+        : status.toLowerCase() == 'warming_up'
+            ? AppColors.watchDark
+            : AppColors.textSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        status,
+        style:
+            TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color),
+      ),
+    );
+  }
+}
+
+class _LevelChip extends StatelessWidget {
+  final String level;
+
+  const _LevelChip({required this.level});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _levelColor(level);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        healthLevelText(level),
+        style:
+            TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color),
+      ),
+    );
+  }
+}
+
+class _InfoBanner extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  const _InfoBanner({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: const TextStyle(height: 1.35))),
+        ],
+      ),
+    );
+  }
+}
+
+class _DisclaimerCard extends StatelessWidget {
+  final String disclaimer;
+
+  const _DisclaimerCard({required this.disclaimer});
+
+  @override
+  Widget build(BuildContext context) {
+    return _InfoBanner(
+      icon: Icons.info_outline,
+      text: disclaimer.isEmpty
+          ? 'Day la dau ra sang loc/nghi ngo nguy co, khong phai chan doan y khoa.'
+          : disclaimer,
+      color: AppColors.textSecondary,
+    );
+  }
+}
+
+class _EmptyReportCard extends StatelessWidget {
+  const _EmptyReportCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Icon(Icons.hourglass_empty, color: AppColors.textSecondary),
+            const SizedBox(height: 8),
+            const Text(
+              'Chua du du lieu bao cao',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Hay bat thiet bi va thu them ECG tot de tao bao cao suc khoe.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -123,47 +727,33 @@ class _ComparisonSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(AppStrings.comparison, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            _CompRow(label: 'HR trung bình', value: '${stats!.hrAvg.toStringAsFixed(0)} BPM', trend: '→', color: AppColors.primary),
-            const Divider(height: 16),
-            _CompRow(label: 'RMSSD trung bình', value: '${stats!.rmssdAvg.toStringAsFixed(1)} ms', trend: '→', color: AppColors.primary),
-            const Divider(height: 16),
-            _CompRow(label: AppStrings.avgAlerts, value: '${stats!.alertCount}', trend: stats!.alertCount > 3 ? '↑' : '↓', color: stats!.alertCount > 3 ? AppColors.alert : AppColors.safe),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LayeredReportCard extends StatelessWidget {
-  final dynamic report;
-
-  const _LayeredReportCard({required this.report});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
             Text(
-              'Đánh giá theo 3 tầng thời gian',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              AppStrings.comparison,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
-            _ReportLine(title: 'Hiện tại', level: report.realtime.level, summary: report.realtime.summary),
+            _CompRow(
+              label: 'HR trung binh',
+              value: '${stats!.hrAvg.toStringAsFixed(0)} BPM',
+              trend: '--',
+              color: AppColors.primary,
+            ),
             const Divider(height: 16),
-            _ReportLine(title: '24 giờ', level: report.daily.level, summary: report.daily.summary),
+            _CompRow(
+              label: 'RMSSD trung binh',
+              value: '${stats!.rmssdAvg.toStringAsFixed(1)} ms',
+              trend: '--',
+              color: AppColors.primary,
+            ),
             const Divider(height: 16),
-            _ReportLine(title: 'Nhiều ngày', level: report.longTerm.level, summary: report.longTerm.summary),
-            const SizedBox(height: 10),
-            Text(
-              'Kết quả là cảnh báo/nghi ngờ nguy cơ, không phải chẩn đoán y khoa.',
-              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            _CompRow(
+              label: AppStrings.avgAlerts,
+              value: '${stats!.alertCount}',
+              trend: stats!.alertCount > 3 ? 'Tang' : 'On',
+              color: stats!.alertCount > 3 ? AppColors.alert : AppColors.safe,
             ),
           ],
         ),
@@ -172,31 +762,31 @@ class _LayeredReportCard extends StatelessWidget {
   }
 }
 
-class _ReportLine extends StatelessWidget {
-  final String title;
-  final String level;
-  final String summary;
-
-  const _ReportLine({
-    required this.title,
-    required this.level,
-    required this.summary,
+class _CompRow extends StatelessWidget {
+  final String label, value, trend;
+  final Color color;
+  const _CompRow({
+    required this.label,
+    required this.value,
+    required this.trend,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 76, child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700))),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_levelText(level), style: TextStyle(fontWeight: FontWeight.w700, color: _levelColor(level))),
-              Text(summary.isEmpty ? '--' : summary, style: const TextStyle(fontSize: 13)),
-            ],
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
+        ),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(width: 8),
+        Text(
+          trend,
+          style: TextStyle(color: color, fontWeight: FontWeight.w800),
         ),
       ],
     );
@@ -212,41 +802,65 @@ Color _levelColor(String level) {
     case 'medium':
       return AppColors.watchDark;
     case 'low':
+    case 'normal':
       return AppColors.safe;
     default:
       return AppColors.textSecondary;
   }
 }
 
-String _levelText(String level) {
-  switch (level.toLowerCase()) {
-    case 'critical':
-      return 'Khẩn cấp';
-    case 'high':
-      return 'Nguy cơ cao';
-    case 'medium':
-      return 'Cần theo dõi';
-    case 'low':
-      return 'Nguy cơ thấp';
+IconData _findingIcon(String type) {
+  final key = type.toLowerCase();
+  if (key.contains('afib') || key.contains('rhythm')) return Icons.waves;
+  if (key.contains('ectopy') || key.contains('pvc') || key.contains('pac')) {
+    return Icons.monitor_heart_outlined;
+  }
+  if (key.contains('heart') || key.contains('tachy') || key.contains('brady')) {
+    return Icons.favorite_outline;
+  }
+  if (key.contains('fall')) return Icons.personal_injury_outlined;
+  if (key.contains('signal')) return Icons.sensors_off_outlined;
+  return Icons.warning_amber_outlined;
+}
+
+String finalEvidenceText(Map<String, dynamic> evidence) {
+  if (evidence.isEmpty) return '';
+  return evidence.entries
+      .take(4)
+      .map((entry) =>
+          '${_evidenceLabel(entry.key)}: ${_formatValue(entry.value)}')
+      .join(' | ');
+}
+
+String _evidenceLabel(String key) {
+  switch (key) {
+    case 'event_count':
+      return 'So lan';
+    case 'max_afib_probability':
+      return 'AFib cao nhat';
+    case 'af_suspicion_window_ratio':
+      return 'Ti le nghi ngo AF';
+    case 'max_af_burden_percent':
+      return 'AF burden';
+    case 'tachycardia_event_count':
+      return 'Nhanh';
+    case 'bradycardia_event_count':
+      return 'Cham';
+    case 'good_signal_ratio':
+      return 'Tin hieu tot';
+    case 'poor_signal_event_count':
+      return 'Tin hieu kem';
     default:
-      return 'Chưa đủ dữ liệu';
+      return key.replaceAll('_', ' ');
   }
 }
 
-class _CompRow extends StatelessWidget {
-  final String label, value, trend;
-  final Color color;
-  const _CompRow({required this.label, required this.value, required this.trend, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Text(label, style: TextStyle(fontSize: 13, color: AppColors.textSecondary))),
-        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-        const SizedBox(width: 8),
-        Text(trend, style: TextStyle(fontSize: 18, color: color, fontWeight: FontWeight.bold)),
-      ],
-    );
+String _formatValue(dynamic value) {
+  if (value is num) {
+    if (value.abs() <= 1 && value != 0) {
+      return '${(value * 100).toStringAsFixed(0)}%';
+    }
+    return value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2);
   }
+  return value?.toString() ?? '--';
 }

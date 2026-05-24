@@ -15,6 +15,8 @@ class HrvCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasRmssd = rmssd > 0;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -39,41 +41,51 @@ class HrvCardWidget extends StatelessWidget {
                 Text(
                   AppStrings.rmssd,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            RichText(
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: rmssd > 0
-                        ? rmssd.toStringAsFixed(1)
-                        : '--',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            if (hasRmssd)
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: rmssd.toStringAsFixed(1),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: _getColor(),
+                              ),
+                    ),
+                    TextSpan(
+                      text: ' ms',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Text(
+                'Chưa đủ dữ liệu',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: _getColor(),
+                      color: AppColors.textHint,
                     ),
-                  ),
-                  TextSpan(
-                    text: ' ms',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
               ),
-            ),
             if (rmssdNormal.isNotEmpty)
               Text(
-                rmssdNormal,
+                hasRmssd
+                    ? rmssdNormal
+                    : 'Backend chưa gửi RMSSD; đang hiển thị chất lượng tín hiệu.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textHint,
-                  fontSize: 10,
-                ),
+                      color: AppColors.textHint,
+                      fontSize: 10,
+                    ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

@@ -70,19 +70,23 @@ class VitalsModel {
   factory VitalsModel.fromJson(Map<String, dynamic> json) {
     final latest = (json['latest_result'] as Map<String, dynamic>?) ?? json;
     final rhythm = latest['rhythm'] as Map<String, dynamic>? ?? const {};
-    final rhythmAlert = latest['rhythm_alert'] as Map<String, dynamic>? ?? const {};
+    final rhythmAlert =
+        latest['rhythm_alert'] as Map<String, dynamic>? ?? const {};
     final anomaly = latest['anomaly'] as Map<String, dynamic>? ?? const {};
     final emotion = latest['emotion'] as Map<String, dynamic>? ?? const {};
     final ectopy = latest['ectopy'] as Map<String, dynamic>? ?? const {};
-    final quality = latest['signal_quality'] as Map<String, dynamic>? ?? const {};
+    final quality =
+        latest['signal_quality'] as Map<String, dynamic>? ?? const {};
     final risk = latest['risk'] as Map<String, dynamic>? ?? const {};
-    final sensor = latest['sensor_context'] as Map<String, dynamic>? ?? const {};
+    final sensor =
+        latest['sensor_context'] as Map<String, dynamic>? ?? const {};
     final activityFeatures =
         sensor['activity_features'] as Map<String, dynamic>? ?? const {};
     final hrEvent = latest['hr_event'] as Map<String, dynamic>? ?? const {};
     final fall = sensor['fall'] as Map<String, dynamic>? ?? const {};
 
-    final rhythmLabel = _str(rhythm['label'], fallback: latest['beat_type'] ?? 'unknown');
+    final rhythmLabel =
+        _str(rhythm['label'], fallback: latest['beat_type'] ?? 'unknown');
     final ectopyLabel = _str(ectopy['label'], fallback: 'unknown');
     final anomalyLabel = _str(anomaly['label'], fallback: 'unknown');
     final pipelineAlert = _str(latest['alert_level'], fallback: 'normal');
@@ -112,7 +116,7 @@ class VitalsModel {
       status: _str(latest['status'], fallback: 'ok'),
       windowCount: _int(latest['window_count']),
       hrBpm: _num(latest['heart_rate_bpm'] ?? latest['hr_bpm']),
-      rmssdMs: _num(latest['rmssd_ms']),
+      rmssdMs: _rmssdFromLatest(latest, sensor),
       lfHfRatio: _num(latest['lf_hf_ratio']),
       anomalyScore: anomalyScore,
       anomalyLabel: anomalyLabel,
@@ -120,9 +124,13 @@ class VitalsModel {
       rawAlertLevel: pipelineAlert,
       beatType: _conditionKey(rhythmLabel, ectopyLabel, hrEvent),
       beatName: _conditionName(rhythmLabel, ectopyLabel, afibProbability),
-      activity: _str(sensor['activity_state'] ?? latest['activity'], fallback: 'REST'),
-      emotion: _mapEmotion(_str(emotion['label'] ?? latest['emotion'], fallback: 'unknown')),
-      emotionConf: _num(emotion['confidence'] ?? latest['emotion_confidence'] ?? latest['emotion_conf']),
+      activity: _str(sensor['activity_state'] ?? latest['activity'],
+          fallback: 'REST'),
+      emotion: _mapEmotion(
+          _str(emotion['label'] ?? latest['emotion'], fallback: 'unknown')),
+      emotionConf: _num(emotion['confidence'] ??
+          latest['emotion_confidence'] ??
+          latest['emotion_conf']),
       rhythmLabel: rhythmLabel,
       rhythmConfidence: _num(rhythm['confidence'] ?? rhythm['probability']),
       afibProbability: afibProbability,
@@ -134,7 +142,8 @@ class VitalsModel {
       riskLevel: _str(risk['level'], fallback: 'unknown'),
       riskScore: _num(risk['score']),
       riskReason: _str(risk['reason'], fallback: ''),
-      message: _str(latest['message'], fallback: _summaryMessage(mappedAlert, clinicalAlerts)),
+      message: _str(latest['message'],
+          fallback: _summaryMessage(mappedAlert, clinicalAlerts)),
       clinicalAlerts: clinicalAlerts,
       rmssdNormal: _qualitySummary(quality, activityFeatures),
       latencyMs: _num(latest['latency_ms'] is Map
@@ -189,7 +198,8 @@ class VitalsModel {
   bool get isWatch => alertLevel.toUpperCase() == 'WATCH';
   bool get isSafe => alertLevel.toUpperCase() == 'SAFE';
   bool get needsAttention => !isSafe;
-  bool get hasReliableSignal => signalQualityLabel == 'good' || signalQualityLabel == 'fair';
+  bool get hasReliableSignal =>
+      signalQualityLabel == 'good' || signalQualityLabel == 'fair';
 
   int get severityLevel {
     switch (alertLevel.toUpperCase()) {
@@ -289,8 +299,13 @@ class ClinicalAlert {
   factory ClinicalAlert.fromJson(Map<String, dynamic> json) {
     return ClinicalAlert(
       type: _str(json['type'] ?? json['event_type'], fallback: 'UNKNOWN'),
-      level: _mapAlertLevel(_str(json['level'] ?? json['severity'], fallback: 'WATCH'), const {}, const {}, const {}),
-      detail: _str(json['detail'] ?? json['message'] ?? json['label'], fallback: ''),
+      level: _mapAlertLevel(
+          _str(json['level'] ?? json['severity'], fallback: 'WATCH'),
+          const {},
+          const {},
+          const {}),
+      detail: _str(json['detail'] ?? json['message'] ?? json['label'],
+          fallback: ''),
     );
   }
 
@@ -336,6 +351,7 @@ String _mapAlertLevel(
   Map<String, dynamic> fall,
 ) {
   if (fall['strong_fall'] == true) return 'CRITICAL';
+  if (fall['fall_candidate'] == true) return 'ALERT';
   final raw = value.toLowerCase();
   if (raw == 'critical') return 'CRITICAL';
   if (raw == 'high' || raw == 'alert') return 'ALERT';
@@ -346,9 +362,40 @@ String _mapAlertLevel(
 
   final rhythmLevel = _str(rhythmAlert['level']).toLowerCase();
   final riskLevel = _str(risk['level']).toLowerCase();
+  if (rhythmLevel == 'critical' || riskLevel == 'critical') return 'CRITICAL';
   if (rhythmLevel == 'high' || riskLevel == 'high') return 'ALERT';
   if (rhythmLevel == 'medium' || riskLevel == 'medium') return 'WATCH';
   return 'SAFE';
+}
+
+double _rmssdFromLatest(
+  Map<String, dynamic> latest,
+  Map<String, dynamic> sensor,
+) {
+  final hrv = latest['hrv'] as Map<String, dynamic>? ?? const {};
+  final hrvMetrics = latest['hrv_metrics'] as Map<String, dynamic>? ?? const {};
+  final features = latest['features'] as Map<String, dynamic>? ?? const {};
+  final metrics = latest['metrics'] as Map<String, dynamic>? ?? const {};
+  final sensorHrv = sensor['hrv'] as Map<String, dynamic>? ?? const {};
+
+  for (final value in [
+    latest['rmssd_ms'],
+    latest['rmssd'],
+    hrv['rmssd_ms'],
+    hrv['rmssd'],
+    hrvMetrics['rmssd_ms'],
+    hrvMetrics['rmssd'],
+    features['rmssd_ms'],
+    features['rmssd'],
+    metrics['rmssd_ms'],
+    metrics['rmssd'],
+    sensorHrv['rmssd_ms'],
+    sensorHrv['rmssd'],
+  ]) {
+    final parsed = _num(value, fallback: -1);
+    if (parsed > 0) return parsed;
+  }
+  return 0.0;
 }
 
 String _mapEmotion(String value) {
@@ -364,15 +411,18 @@ String _mapEmotion(String value) {
   }
 }
 
-String _conditionKey(String rhythmLabel, String ectopyLabel, Map<String, dynamic> hrEvent) {
+String _conditionKey(
+    String rhythmLabel, String ectopyLabel, Map<String, dynamic> hrEvent) {
   if (rhythmLabel == 'possible_afib') return 'AF_NEW';
-  if (ectopyLabel == 'pvc' || ectopyLabel == 'mixed_ectopic') return 'PVC_ISOLATED';
+  if (ectopyLabel == 'pvc' || ectopyLabel == 'mixed_ectopic')
+    return 'PVC_ISOLATED';
   if (_str(hrEvent['label']).contains('tachycardia')) return 'ST_PATHOLOGICAL';
   if (_str(hrEvent['label']).contains('bradycardia')) return 'SB_PATHOLOGICAL';
   return 'NSR';
 }
 
-String _conditionName(String rhythmLabel, String ectopyLabel, double afibProbability) {
+String _conditionName(
+    String rhythmLabel, String ectopyLabel, double afibProbability) {
   if (rhythmLabel == 'possible_afib') {
     return 'Nghi ngờ rung nhĩ (${(afibProbability * 100).round()}%)';
   }
@@ -384,11 +434,13 @@ String _conditionName(String rhythmLabel, String ectopyLabel, double afibProbabi
   return 'Đang phân tích nhịp tim';
 }
 
-String _qualitySummary(Map<String, dynamic> quality, Map<String, dynamic> activityFeatures) {
+String _qualitySummary(
+    Map<String, dynamic> quality, Map<String, dynamic> activityFeatures) {
   final label = _str(quality['label'], fallback: 'unknown');
   final score = (_num(quality['score']) * 100).round();
   final accStd = activityFeatures['acc_vm_std'];
-  final movement = accStd == null ? '' : ' | vận động ${_num(accStd).toStringAsFixed(1)} mG';
+  final movement =
+      accStd == null ? '' : ' | vận động ${_num(accStd).toStringAsFixed(1)} mG';
   return 'Tín hiệu $label, độ tin cậy $score%$movement';
 }
 
@@ -435,14 +487,19 @@ List<ClinicalAlert> _clinicalAlertsFromJson(
   if (rhythmLabel == 'possible_afib' || afibProbability >= 0.28) {
     alerts.add(ClinicalAlert(
       type: 'afib_suspicion',
-      level: 'WATCH',
+      level: afibProbability >= 0.5 ||
+              _str(rhythmAlert['level']).toLowerCase() == 'high'
+          ? 'ALERT'
+          : 'WATCH',
       detail: _str(
         rhythmAlert['message'],
         fallback: 'Có mẫu nhịp giống rung nhĩ. Nên tiếp tục theo dõi.',
       ),
     ));
   }
-  if (ectopyLabel == 'pvc' || ectopyLabel == 'pac' || ectopyLabel == 'mixed_ectopic') {
+  if (ectopyLabel == 'pvc' ||
+      ectopyLabel == 'pac' ||
+      ectopyLabel == 'mixed_ectopic') {
     alerts.add(ClinicalAlert(
       type: 'ectopy_suspicion',
       level: 'WATCH',
@@ -454,14 +511,16 @@ List<ClinicalAlert> _clinicalAlertsFromJson(
     alerts.add(ClinicalAlert(
       type: _str(hrEvent['label'], fallback: 'heart_rate_event'),
       level: mappedAlert == 'SAFE' ? 'WATCH' : mappedAlert,
-      detail: _str(hrEvent['message'], fallback: 'Nhịp tim nằm ngoài ngưỡng theo ngữ cảnh.'),
+      detail: _str(hrEvent['message'],
+          fallback: 'Nhịp tim nằm ngoài ngưỡng theo ngữ cảnh.'),
     ));
   }
   if (anomalyLabel == 'abnormal') {
     alerts.add(const ClinicalAlert(
       type: 'ecg_anomaly',
       level: 'WATCH',
-      detail: 'ECG có cửa sổ bất thường, cần xem cùng chất lượng tín hiệu và lịch sử.',
+      detail:
+          'ECG có cửa sổ bất thường, cần xem cùng chất lượng tín hiệu và lịch sử.',
     ));
   }
   return alerts;

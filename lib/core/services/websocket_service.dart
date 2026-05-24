@@ -24,6 +24,7 @@ class WebSocketService {
   bool _autoReconnect = true;
 
   String _serverUrl = '';
+  String _accessCode = '';
 
   // ─── Streams ───
   Stream<Map<String, dynamic>> get vitalsStream => _vitalsController.stream;
@@ -34,9 +35,11 @@ class WebSocketService {
   /// Cấu hình server URL
   void configure({
     required String serverUrl,
+    String? accessCode,
     bool autoReconnect = true,
   }) {
     _serverUrl = serverUrl;
+    _accessCode = accessCode?.trim() ?? '';
     _autoReconnect = autoReconnect;
   }
 
@@ -55,7 +58,10 @@ class WebSocketService {
 
       _ws = await WebSocket.connect(
         '$wsUrl/ws/vitals',
-        headers: {'Accept': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          if (_accessCode.isNotEmpty) 'X-Access-Code': _accessCode,
+        },
       ).timeout(const Duration(seconds: 10));
 
       _updateConnectionState(WsConnectionState.connected);

@@ -9,10 +9,8 @@ import '../../core/providers/vitals_provider.dart';
 import '../../core/providers/alerts_provider.dart';
 import '../../core/providers/user_provider.dart';
 import 'widgets/hr_gauge_widget.dart';
-import 'widgets/condition_indicator_widget.dart';
 import 'widgets/hrv_card_widget.dart';
 import 'widgets/activity_badge_widget.dart';
-import 'widgets/emotion_card_widget.dart';
 import 'widgets/alert_banner_widget.dart';
 import 'widgets/connection_status_widget.dart';
 import 'widgets/mini_hr_chart_widget.dart';
@@ -80,9 +78,9 @@ class DashboardScreen extends ConsumerWidget {
             tooltip: 'Tạo báo cáo lâm sàng',
             onSelected: (days) {
               Navigator.push(
-                context, 
-                MaterialPageRoute(builder: (_) => ClinicalReportScreen(days: days))
-              );
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => ClinicalReportScreen(days: days)));
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 1, child: Text('Hôm nay (24h qua)')),
@@ -105,15 +103,18 @@ class DashboardScreen extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                      border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.2)),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.visibility, color: AppColors.primary, size: 18),
+                        Icon(Icons.visibility,
+                            color: AppColors.primary, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           AppStrings.remoteCaregiverBanner,
@@ -125,15 +126,55 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                         const Spacer(),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             AppStrings.remoteMode,
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.primary),
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary),
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              if (vitalsState.healthReport != null &&
+                  vitalsState.healthReport!.personalBaseline.status != 'ready')
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.watchLight,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.watch.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.tune, color: AppColors.watchDark),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Baseline ca nhan: ${vitalsState.healthReport!.personalBaseline.progressText}. Tiep tuc huong dan trong Ho so.',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.watchDark,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => context.go('/profile'),
+                          child: const Text('Mo'),
                         ),
                       ],
                     ),
@@ -145,33 +186,13 @@ class DashboardScreen extends ConsumerWidget {
                 hrBpm: vitals?.hrBpm ?? 0,
                 alertLevel: vitals?.alertLevel ?? 'SAFE',
                 conditionNameVi: vitals?.beatName ?? 'Nhịp xoang bình thường',
-                confidence: 1.0 - (vitals?.anomalyScore ?? 0.0), // Mock confidence from anomaly
+                confidence: 1.0 -
+                    (vitals?.anomalyScore ??
+                        0.0), // Mock confidence from anomaly
                 hrMin: (vitals?.hrBpm ?? 60) - 4,
                 hrMax: (vitals?.hrBpm ?? 60) + 7,
               ),
               const SizedBox(height: 16),
-
-              // ── Tình trạng tim ──
-              ConditionIndicatorWidget(
-                conditionKey: vitals?.beatType ?? 'NSR',
-                alertLevel: vitals?.alertLevel ?? 'SAFE',
-                confidence: 1.0 - (vitals?.anomalyScore ?? 0.0),
-                onTap: () {
-                  // TODO: Navigate to Condition Detail
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // ── Trạng thái cảm xúc ──
-              EmotionCardWidget(
-                emotion: vitals?.emotion ?? 'Calm',
-                activityLevel: vitals?.activity ?? 'REST',
-                hasEnoughData: true, // Mocked for demo
-                onTap: () {
-                  // TODO: Navigate to Emotion Detail
-                },
-              ),
-              const SizedBox(height: 20),
 
               if (vitals != null) ...[
                 _ModelOutputSection(vitals: vitals),
@@ -225,16 +246,22 @@ class DashboardScreen extends ConsumerWidget {
                         children: [
                           Text(
                             AppStrings.last30Min,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                           if (vitals != null)
                             Text(
                               '${AppStrings.latency}: ${vitals.latencyMs.toStringAsFixed(0)} ${AppStrings.ms}',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
                             ),
                         ],
                       ),
@@ -254,14 +281,16 @@ class DashboardScreen extends ConsumerWidget {
               // ── Timestamp & timeout ──
               if (vitalsState.isTimedOut)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppColors.watchLight,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.warning_amber, color: AppColors.watchDark, size: 18),
+                      const Icon(Icons.warning_amber,
+                          color: AppColors.watchDark, size: 18),
                       const SizedBox(width: 8),
                       Text(
                         AppStrings.noDataTimeout,
@@ -281,8 +310,8 @@ class DashboardScreen extends ConsumerWidget {
                   child: Text(
                     '${AppStrings.lastUpdated}: ${_formatTime(vitalsState.lastUpdated!)}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textHint,
-                    ),
+                          color: AppColors.textHint,
+                        ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -317,7 +346,8 @@ class _ModelOutputSection extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.analytics_outlined, size: 20, color: AppColors.primary),
+                const Icon(Icons.analytics_outlined,
+                    size: 20, color: AppColors.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Kết quả phân tích từ model',
@@ -330,20 +360,24 @@ class _ModelOutputSection extends StatelessWidget {
             const SizedBox(height: 12),
             _MetricRow(
               label: 'Nhịp tim',
-              value: '${vitals.rhythmLabel} | AFib ${(vitals.afibProbability * 100).round()}%',
-              detail: 'Độ tin cậy rhythm ${(vitals.rhythmConfidence * 100).round()}%',
+              value:
+                  '${vitals.rhythmLabel} | AFib ${(vitals.afibProbability * 100).round()}%',
+              detail:
+                  'Độ tin cậy rhythm ${(vitals.rhythmConfidence * 100).round()}%',
             ),
             const Divider(height: 16),
             _MetricRow(
               label: 'PVC/PAC',
               value: vitals.ectopyLabel,
-              detail: 'PVC ${(vitals.pvcProbability * 100).round()}%, PAC ${(vitals.pacProbability * 100).round()}%',
+              detail:
+                  'PVC ${(vitals.pvcProbability * 100).round()}%, PAC ${(vitals.pacProbability * 100).round()}%',
             ),
             const Divider(height: 16),
             _MetricRow(
               label: 'Tín hiệu',
               value: vitals.signalQualityLabel,
-              detail: 'Điểm ${(vitals.signalQualityScore * 100).round()}% - ${vitals.riskReason.isEmpty ? vitals.message : vitals.riskReason}',
+              detail:
+                  'Điểm ${(vitals.signalQualityScore * 100).round()}% - ${vitals.riskReason.isEmpty ? vitals.message : vitals.riskReason}',
             ),
           ],
         ),
@@ -367,12 +401,16 @@ class _TimeLayerReportSection extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.health_and_safety_outlined, size: 20, color: _levelColor(report.overallLevel)),
+                Icon(Icons.health_and_safety_outlined,
+                    size: 20, color: _levelColor(report.overallLevel)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Báo cáo sức khỏe theo thời gian',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
                 _LevelChip(level: report.overallLevel),
@@ -384,6 +422,15 @@ class _TimeLayerReportSection extends StatelessWidget {
             _LayerTile(name: '24 giờ', layer: report.daily),
             const Divider(height: 16),
             _LayerTile(name: 'Nhiều ngày', layer: report.longTerm),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => context.go('/report'),
+                icon: const Icon(Icons.assignment_outlined),
+                label: const Text('Xem bao cao va khuyen nghi'),
+              ),
+            ),
           ],
         ),
       ),
@@ -409,7 +456,8 @@ class _LayerTile extends StatelessWidget {
       children: [
         SizedBox(
           width: 76,
-          child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+          child:
+              Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
         ),
         Expanded(
           child: Column(
@@ -422,7 +470,8 @@ class _LayerTile extends StatelessWidget {
                   Expanded(
                     child: Text(
                       layer.windowLabel,
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -436,7 +485,8 @@ class _LayerTile extends StatelessWidget {
               if (findings.isNotEmpty)
                 Text(
                   findingText,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary),
                 ),
             ],
           ),
@@ -464,14 +514,17 @@ class _MetricRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 120,
-          child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          child:
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
         ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
-              Text(detail, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              Text(detail,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary)),
             ],
           ),
         ),
@@ -496,7 +549,8 @@ class _LevelChip extends StatelessWidget {
       ),
       child: Text(
         _levelText(level),
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+        style:
+            TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color),
       ),
     );
   }
@@ -564,9 +618,9 @@ class _LfHfCard extends StatelessWidget {
                 Text(
                   AppStrings.lfHfRatio,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
                 ),
               ],
             ),
@@ -574,16 +628,16 @@ class _LfHfCard extends StatelessWidget {
             Text(
               lfHfRatio.toStringAsFixed(2),
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: _getColor(),
-              ),
+                    fontWeight: FontWeight.w700,
+                    color: _getColor(),
+                  ),
             ),
             Text(
               _getDescription(),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textHint,
-                fontSize: 11,
-              ),
+                    color: AppColors.textHint,
+                    fontSize: 11,
+                  ),
             ),
           ],
         ),

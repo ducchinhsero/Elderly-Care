@@ -8,6 +8,7 @@ class AlertModel {
   final double? hrBpm;
   final double? rmssdMs;
   final String? activity;
+  final Map<String, dynamic> metadata;
   final bool isRead;
 
   const AlertModel({
@@ -19,6 +20,7 @@ class AlertModel {
     this.hrBpm,
     this.rmssdMs,
     this.activity,
+    this.metadata = const {},
     this.isRead = false,
   });
 
@@ -41,7 +43,9 @@ class AlertModel {
       hrBpm: (json['heart_rate_bpm'] as num?)?.toDouble() ??
           (json['hr_bpm'] as num?)?.toDouble(),
       rmssdMs: (json['rmssd_ms'] as num?)?.toDouble(),
-      activity: json['activity_state'] as String? ?? json['activity'] as String?,
+      activity:
+          json['activity_state'] as String? ?? json['activity'] as String?,
+      metadata: json['metadata'] as Map<String, dynamic>? ?? const {},
       isRead: json['is_read'] as bool? ?? false,
     );
   }
@@ -56,6 +60,7 @@ class AlertModel {
       'hr_bpm': hrBpm,
       'rmssd_ms': rmssdMs,
       'activity': activity,
+      'metadata': metadata,
       'is_read': isRead,
     };
   }
@@ -77,6 +82,7 @@ class AlertModel {
       hrBpm: hrBpm,
       rmssdMs: rmssdMs,
       activity: activity,
+      metadata: clinicalAlert,
     );
   }
 
@@ -97,6 +103,64 @@ class AlertModel {
     }
   }
 
+  String get userTitle {
+    final key = type.toLowerCase();
+    if (key.contains('fall')) return 'Nghi ngo te nga';
+    if (key.contains('afib') || key.contains('rhythm')) {
+      return 'Bat thuong nhip tim';
+    }
+    if (key.contains('ectopy') || key.contains('pvc') || key.contains('pac')) {
+      return 'Hoat dong PVC/PAC';
+    }
+    if (key.contains('tachy')) return 'Nhip tim nhanh';
+    if (key.contains('brady')) return 'Nhip tim cham';
+    if (key.contains('poor_signal') || key.contains('signal')) {
+      return 'Tin hieu do kem';
+    }
+    return 'Canh bao suc khoe';
+  }
+
+  String get userDetail {
+    if (detail.isNotEmpty) return detail;
+    final key = type.toLowerCase();
+    if (key.contains('fall')) {
+      return 'He thong phat hien mau van dong co the la te nga.';
+    }
+    if (key.contains('afib') || key.contains('rhythm')) {
+      return 'Nhip tim co mau bat thuong can theo doi them.';
+    }
+    if (key.contains('ectopy') || key.contains('pvc') || key.contains('pac')) {
+      return 'Co dau hieu PVC/PAC hoac nhip den som trong cua so do.';
+    }
+    if (key.contains('tachy')) return 'Nhip tim cao hon nguong theo boi canh.';
+    if (key.contains('brady')) return 'Nhip tim thap hon nguong theo boi canh.';
+    if (key.contains('poor_signal') || key.contains('signal')) {
+      return 'Chat luong tin hieu ECG co the lam giam do tin cay.';
+    }
+    return 'Can xem lai su kien va tiep tuc theo doi.';
+  }
+
+  String get actionText {
+    final key = type.toLowerCase();
+    if (isCritical || key.contains('fall')) {
+      return 'Kiem tra nguoi dung ngay.';
+    }
+    if (isAlert) {
+      return 'Ghi nhan trieu chung va trao doi voi nhan vien y te neu tinh trang lap lai.';
+    }
+    if (isWatch) {
+      return 'Theo doi them va kiem tra lai neu co trieu chung.';
+    }
+    return 'Luu lai de theo doi xu huong.';
+  }
+
+  String get severityGroup {
+    if (isCritical) return 'Can ho tro ngay';
+    if (isAlert) return 'Nen trao doi y te';
+    if (isWatch) return 'Can theo doi';
+    return 'Thong tin';
+  }
+
   AlertModel copyWith({
     String? id,
     DateTime? timestamp,
@@ -106,6 +170,7 @@ class AlertModel {
     double? hrBpm,
     double? rmssdMs,
     String? activity,
+    Map<String, dynamic>? metadata,
     bool? isRead,
   }) {
     return AlertModel(
@@ -117,6 +182,7 @@ class AlertModel {
       hrBpm: hrBpm ?? this.hrBpm,
       rmssdMs: rmssdMs ?? this.rmssdMs,
       activity: activity ?? this.activity,
+      metadata: metadata ?? this.metadata,
       isRead: isRead ?? this.isRead,
     );
   }

@@ -14,6 +14,19 @@ class ConnectionStatusWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final storage = ref.watch(storageServiceProvider);
     final isRemote = storage.isCaregiver;
+    final vitalsState = ref.watch(vitalsProvider);
+    final lastUpdated = vitalsState.lastUpdated;
+
+    if (lastUpdated != null && !vitalsState.isTimedOut) {
+      final diff = DateTime.now().difference(lastUpdated);
+      if (diff.inSeconds <= 60) {
+        return _dot(context, AppColors.safe, AppStrings.synced);
+      }
+    }
+
+    if (vitalsState.isLoading && vitalsState.currentVitals == null) {
+      return _dot(context, AppColors.watch, AppStrings.loading);
+    }
 
     if (isRemote) {
       // Remote mode → hiển thị WebSocket state
@@ -29,7 +42,8 @@ class ConnectionStatusWidget extends ConsumerWidget {
       return mqttState.when(
         data: (state) => _buildMqttDot(context, state),
         loading: () => _buildMqttDot(context, MqttConnectionState.connecting),
-        error: (_, __) => _buildMqttDot(context, MqttConnectionState.disconnected),
+        error: (_, __) =>
+            _buildMqttDot(context, MqttConnectionState.disconnected),
       );
     }
   }
@@ -68,11 +82,11 @@ class ConnectionStatusWidget extends ConsumerWidget {
         break;
       case WsConnectionState.connecting:
         color = AppColors.watch;
-        text = AppStrings.connecting;
+        text = AppStrings.realtimeReconnecting;
         break;
       case WsConnectionState.reconnecting:
         color = AppColors.watch;
-        text = AppStrings.wsReconnecting;
+        text = AppStrings.realtimeReconnecting;
         break;
       case WsConnectionState.disconnected:
         color = AppColors.critical;
@@ -89,10 +103,17 @@ class ConnectionStatusWidget extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 8, height: 8,
+            width: 8,
+            height: 8,
             decoration: BoxDecoration(
-              shape: BoxShape.circle, color: color,
-              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 4, spreadRadius: 1)],
+              shape: BoxShape.circle,
+              color: color,
+              boxShadow: [
+                BoxShadow(
+                    color: color.withValues(alpha: 0.4),
+                    blurRadius: 4,
+                    spreadRadius: 1)
+              ],
             ),
           ),
           const SizedBox(width: 6),
@@ -102,7 +123,8 @@ class ConnectionStatusWidget extends ConsumerWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color, fontSize: 11, fontWeight: FontWeight.w500),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: color, fontSize: 11, fontWeight: FontWeight.w500),
             ),
           ),
         ],

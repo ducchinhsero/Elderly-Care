@@ -1,8 +1,8 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
+
 import '../../../core/constants/app_colors.dart';
 
-class HRGaugeWidget extends StatefulWidget {
+class HRGaugeWidget extends StatelessWidget {
   final double hrBpm;
   final String alertLevel;
   final String conditionNameVi;
@@ -23,250 +23,302 @@ class HRGaugeWidget extends StatefulWidget {
   });
 
   @override
-  State<HRGaugeWidget> createState() => _HRGaugeWidgetState();
-}
-
-class _HRGaugeWidgetState extends State<HRGaugeWidget> with TickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
-  late AnimationController _blinkController;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(vsync: this);
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.04).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    _blinkController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
-    _startAnimations();
-  }
-
-  @override
-  void didUpdateWidget(covariant HRGaugeWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.hrBpm != widget.hrBpm || oldWidget.alertLevel != widget.alertLevel) {
-      _startAnimations();
-    }
-  }
-
-  void _startAnimations() {
-    // Sync heartbeat pulse with HR
-    final hr = widget.hrBpm > 0 ? widget.hrBpm : 60.0;
-    final durationMs = (60000 / hr).round();
-    _pulseController.duration = Duration(milliseconds: durationMs);
-    _pulseController.repeat(reverse: true);
-
-    if (widget.alertLevel == 'CRITICAL') {
-      _blinkController.repeat(reverse: true);
-    } else {
-      _blinkController.reset();
-    }
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    _blinkController.dispose();
-    super.dispose();
-  }
-
-  Color _getBaseColor() {
-    switch (widget.alertLevel) {
-      case 'WATCH': return AppColors.watch;
-      case 'ALERT': return AppColors.alert;
-      case 'CRITICAL': return AppColors.critical;
-      case 'SAFE':
-      default: return AppColors.safe;
-    }
-  }
-
-  List<Color> _getGradientColors() {
-    switch (widget.alertLevel) {
-      case 'WATCH': return [const Color(0xFFFFC107), const Color(0xFFFFD54F)];
-      case 'ALERT': return [const Color(0xFFFF5722), const Color(0xFFFF8A65)];
-      case 'CRITICAL': return [const Color(0xFFF44336), const Color(0xFFEF5350)];
-      case 'SAFE':
-      default: return [const Color(0xFF4CAF50), const Color(0xFF81C784)];
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final hrAvg = (widget.hrMin + widget.hrMax) / 2; // Simple avg for display
+    final color = _levelColor();
+    final hr = hrBpm <= 0 ? null : hrBpm.round();
+    final normalized = hrBpm <= 0 ? 0.0 : ((hrBpm - 40) / 120).clamp(0.0, 1.0);
+    final hrAvg = ((hrMin + hrMax) / 2).round();
 
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Vòng tròn chính
-          AnimatedBuilder(
-            animation: Listenable.merge([_pulseController, _blinkController]),
-            builder: (context, child) {
-              final opacity = widget.alertLevel == 'CRITICAL' 
-                  ? Tween<double>(begin: 1.0, end: 0.5).evaluate(_blinkController)
-                  : 1.0;
-              return Transform.scale(
-                scale: _pulseAnimation.value,
-                child: Opacity(
-                  opacity: opacity,
-                  child: SizedBox(
-                    width: 240,
-                    height: 240,
-                    child: CustomPaint(
-                      painter: _GaugePainter(
-                        colors: _getGradientColors(),
-                        value: widget.hrBpm,
-                      ),
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.baseline,
-                              textBaseline: TextBaseline.alphabetic,
-                              children: [
-                                Text(
-                                  widget.hrBpm.toInt().toString(),
-                                  style: TextStyle(
-                                    fontSize: 48,
-                                    fontWeight: FontWeight.bold,
-                                    color: _getBaseColor(),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'BPM',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: _getBaseColor().withValues(alpha: 0.8),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              widget.conditionNameVi,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.textPrimary,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            if (widget.confidence < 0.80) ...[
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppColors.textHint.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const SizedBox(
-                                      width: 10, height: 10,
-                                      child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(AppColors.textHint)),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text('Đang phân tích', style: TextStyle(fontSize: 10, color: AppColors.textHint)),
-                                  ],
-                                ),
-                              )
-                            ]
-                          ],
-                        ),
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.favorite, color: color, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Nhịp tim',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
+                  _StatusChip(label: _levelText(), color: color),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    hr?.toString() ?? '--',
+                    style: TextStyle(
+                      fontSize: 52,
+                      height: 0.95,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      'BPM',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: color.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  if (confidence < 0.8) const _AnalyzingChip(),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                conditionNameVi,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-          // Chỉ số phụ bên dưới
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildMiniMetric('HR Min', widget.hrMin.toInt().toString()),
-              Container(width: 1, height: 24, color: AppColors.border),
-              _buildMiniMetric('HR TB', hrAvg.toInt().toString()),
-              Container(width: 1, height: 24, color: AppColors.border),
-              _buildMiniMetric('HR Max', widget.hrMax.toInt().toString()),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 16),
+              _HeartRateRangeBar(value: normalized, color: color),
+              const SizedBox(height: 8),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('40', style: _AxisStyle()),
+                  Text('50-100 bình thường', style: _AxisStyle()),
+                  Text('160+', style: _AxisStyle()),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                      child: _MiniMetric(label: 'Thấp', value: hrMin.round())),
+                  const SizedBox(width: 8),
+                  Expanded(child: _MiniMetric(label: 'TB', value: hrAvg)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: _MiniMetric(label: 'Cao', value: hrMax.round())),
+                ],
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _levelColor() {
+    switch (alertLevel.toUpperCase()) {
+      case 'WATCH':
+        return AppColors.watchDark;
+      case 'ALERT':
+        return AppColors.alert;
+      case 'CRITICAL':
+        return AppColors.critical;
+      case 'SAFE':
+      default:
+        return AppColors.safe;
+    }
+  }
+
+  String _levelText() {
+    switch (alertLevel.toUpperCase()) {
+      case 'WATCH':
+        return 'Theo dõi';
+      case 'ALERT':
+        return 'Cảnh báo';
+      case 'CRITICAL':
+        return 'Nguy hiểm';
+      case 'SAFE':
+      default:
+        return 'Ổn định';
+    }
+  }
+}
+
+class _HeartRateRangeBar extends StatelessWidget {
+  final double value;
+  final Color color;
+
+  const _HeartRateRangeBar({required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final markerLeft = (constraints.maxWidth * value - 6)
+            .clamp(0.0, constraints.maxWidth - 12);
+        return SizedBox(
+          height: 22,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: Container(height: 10, color: AppColors.watchLight),
+                    ),
+                    Expanded(
+                      flex: 4,
+                      child: Container(
+                        height: 10,
+                        color: AppColors.safe.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Container(
+                        height: 10,
+                        color: AppColors.alert.withValues(alpha: 0.25),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: markerLeft,
+                child: Container(
+                  width: 12,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.35),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _StatusChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _AnalyzingChip extends StatelessWidget {
+  const _AnalyzingChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.textHint.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Text(
+        'Đang phân tích',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textHint,
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniMetric extends StatelessWidget {
+  final String label;
+  final int value;
+
+  const _MiniMetric({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundLight,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value.toString(),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textHint,
+            ),
           ),
         ],
       ),
     );
   }
-
-  Widget _buildMiniMetric(String label, String val) {
-    return Column(
-      children: [
-        Text(val, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-        const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
-      ],
-    );
-  }
 }
 
-class _GaugePainter extends CustomPainter {
-  final List<Color> colors;
-  final double value;
-
-  _GaugePainter({required this.colors, required this.value});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2;
-
-    // Vòng giữa nền trong suốt
-    final bgPaint = Paint()
-      ..color = colors.first.withValues(alpha: 0.08)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, radius - 16, bgPaint);
-
-    // Vòng ngoài cùng gradient arc
-    final rect = Rect.fromCircle(center: center, radius: radius - 8);
-    final arcPaint = Paint()
-      ..shader = SweepGradient(colors: colors).createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 16
-      ..strokeCap = StrokeCap.round;
-
-    // Vẽ 3/4 vòng tròn (bắt đầu từ 135 độ, kéo dài 270 độ)
-    final startAngle = 135 * (math.pi / 180);
-    final sweepAngle = 270 * (math.pi / 180);
-
-    // Vẽ nền xám nhạt cho arc
-    final arcBgPaint = Paint()
-      ..color = AppColors.border.withValues(alpha: 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 16
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(rect, startAngle, sweepAngle, false, arcBgPaint);
-
-    // Tính toán góc vẽ theo value (giả sử max = 200 bpm)
-    final normalized = (value / 200).clamp(0.0, 1.0);
-    final currentSweep = sweepAngle * normalized;
-    
-    // Draw outer arc
-    canvas.drawArc(rect, startAngle, currentSweep, false, arcPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _GaugePainter oldDelegate) {
-    return oldDelegate.colors != colors || oldDelegate.value != value;
-  }
+class _AxisStyle extends TextStyle {
+  const _AxisStyle()
+      : super(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textHint,
+        );
 }

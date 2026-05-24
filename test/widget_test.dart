@@ -15,7 +15,8 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:elder_health_monitor/core/services/storage_service.dart';
 import 'package:elder_health_monitor/core/services/mqtt_service.dart';
 
-class _FakePathProvider extends PathProviderPlatform with MockPlatformInterfaceMixin {
+class _FakePathProvider extends PathProviderPlatform
+    with MockPlatformInterfaceMixin {
   _FakePathProvider(this.tmp);
   final String tmp;
 
@@ -69,29 +70,40 @@ void main() {
       expect(storage.hasSelectedRole, isTrue);
     });
 
-    test('apiBaseUrl thay đổi theo role và cloudUrl', () async {
-      // Mặc định: wearer → dùng gateway IP
+    test('apiBaseUrl thay đổi theo vai trò edge/cloud', () async {
+      // Mặc định: người đeo dùng gateway IP nội bộ
       await storage.setGatewayIp('10.0.0.5');
       expect(storage.apiBaseUrl, 'http://10.0.0.5:8000');
 
-      // Caregiver có cloudUrl → dùng cloudUrl
+      // Người giám sát dùng cloud endpoint nội bộ của app, không nhập ở onboarding
       await storage.setUserRole('caregiver');
+      expect(storage.apiBaseUrl, StorageService.defaultCloudBaseUrl);
+
+      // Dev vẫn có thể override cloud URL trong cấu hình nâng cao/nội bộ
       await storage.setCloudUrl('https://api.example.com');
       expect(storage.apiBaseUrl, 'https://api.example.com');
+    });
 
-      // Caregiver nhưng cloudUrl rỗng → fallback gateway IP
-      await storage.setCloudUrl('');
-      expect(storage.apiBaseUrl, 'http://10.0.0.5:8000');
+    test('lưu mã thiết bị và mã truy cập', () async {
+      await storage.setDeviceCode('eld-2026-001');
+      await storage.setPairingCode('care-123-abc');
+
+      expect(storage.deviceCode, 'ELD-2026-001');
+      expect(storage.pairingCode, 'CARE-123-ABC');
     });
   });
 
   group('MqttConnectionState enum', () {
     test('có đủ 4 trạng thái', () {
       expect(MqttConnectionState.values, hasLength(4));
-      expect(MqttConnectionState.values, contains(MqttConnectionState.connected));
-      expect(MqttConnectionState.values, contains(MqttConnectionState.connecting));
-      expect(MqttConnectionState.values, contains(MqttConnectionState.disconnected));
-      expect(MqttConnectionState.values, contains(MqttConnectionState.reconnecting));
+      expect(
+          MqttConnectionState.values, contains(MqttConnectionState.connected));
+      expect(
+          MqttConnectionState.values, contains(MqttConnectionState.connecting));
+      expect(MqttConnectionState.values,
+          contains(MqttConnectionState.disconnected));
+      expect(MqttConnectionState.values,
+          contains(MqttConnectionState.reconnecting));
     });
   });
 }

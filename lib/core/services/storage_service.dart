@@ -6,6 +6,10 @@ class StorageService {
   static const String _settingsBox = 'settings';
   static const String _alertsBox = 'alerts';
   static const String _cacheBox = 'cache';
+  static const String defaultCloudBaseUrl = String.fromEnvironment(
+    'ELDERLY_CARE_CLOUD_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
 
   late Box _settingsBoxInstance;
   late Box _alertsBoxInstance;
@@ -36,14 +40,13 @@ class StorageService {
   Future<void> setGatewayIp(String ip) => saveSetting('gateway_ip', ip);
 
   /// MQTT Port
-  int get mqttPort =>
-      getSetting<int>('mqtt_port', defaultValue: 1883)!;
+  int get mqttPort => getSetting<int>('mqtt_port', defaultValue: 1883)!;
   Future<void> setMqttPort(int port) => saveSetting('mqtt_port', port);
 
-  /// API Base URL — uses cloud URL for caregiver, local for wearer
+  /// API Base URL — wearer reads the local edge gateway, caregiver reads cloud.
   String get apiBaseUrl {
-    if (isCaregiver && cloudUrl.isNotEmpty) {
-      return cloudUrl;
+    if (isCaregiver) {
+      return cloudUrl.isNotEmpty ? cloudUrl : defaultCloudBaseUrl;
     }
     return 'http://$gatewayIp:8000';
   }
@@ -55,17 +58,14 @@ class StorageService {
       saveSetting('auto_reconnect', value);
 
   /// Dark mode
-  bool get isDarkMode =>
-      getSetting<bool>('dark_mode', defaultValue: false)!;
+  bool get isDarkMode => getSetting<bool>('dark_mode', defaultValue: false)!;
   Future<void> setDarkMode(bool value) => saveSetting('dark_mode', value);
 
   /// Notification settings
   bool get notifCritical =>
       getSetting<bool>('notif_critical', defaultValue: true)!;
-  bool get notifAlert =>
-      getSetting<bool>('notif_alert', defaultValue: true)!;
-  bool get notifWatch =>
-      getSetting<bool>('notif_watch', defaultValue: false)!;
+  bool get notifAlert => getSetting<bool>('notif_alert', defaultValue: true)!;
+  bool get notifWatch => getSetting<bool>('notif_watch', defaultValue: false)!;
   Future<void> setNotifCritical(bool v) => saveSetting('notif_critical', v);
   Future<void> setNotifAlert(bool v) => saveSetting('notif_alert', v);
   Future<void> setNotifWatch(bool v) => saveSetting('notif_watch', v);
@@ -73,25 +73,20 @@ class StorageService {
   /// Quiet hours
   bool get quietHoursEnabled =>
       getSetting<bool>('quiet_hours', defaultValue: true)!;
-  Future<void> setQuietHoursEnabled(bool v) =>
-      saveSetting('quiet_hours', v);
+  Future<void> setQuietHoursEnabled(bool v) => saveSetting('quiet_hours', v);
 
   /// User ID
-  String get userId =>
-      getSetting<String>('user_id', defaultValue: 'default')!;
+  String get userId => getSetting<String>('user_id', defaultValue: 'default')!;
   Future<void> setUserId(String id) => saveSetting('user_id', id);
 
   /// Auto thresholds
   bool get autoThresholds =>
       getSetting<bool>('auto_thresholds', defaultValue: true)!;
-  Future<void> setAutoThresholds(bool v) =>
-      saveSetting('auto_thresholds', v);
+  Future<void> setAutoThresholds(bool v) => saveSetting('auto_thresholds', v);
 
   /// HR thresholds
-  double get hrLow =>
-      getSetting<double>('hr_low', defaultValue: 50.0)!;
-  double get hrHigh =>
-      getSetting<double>('hr_high', defaultValue: 100.0)!;
+  double get hrLow => getSetting<double>('hr_low', defaultValue: 50.0)!;
+  double get hrHigh => getSetting<double>('hr_high', defaultValue: 100.0)!;
   Future<void> setHrLow(double v) => saveSetting('hr_low', v);
   Future<void> setHrHigh(double v) => saveSetting('hr_high', v);
 
@@ -104,18 +99,26 @@ class StorageService {
   // ─── Role & Remote Monitoring ───
 
   /// Vai trò: 'wearer' hoặc 'caregiver'
-  String get userRole =>
-      getSetting<String>('user_role', defaultValue: '')!;
+  String get userRole => getSetting<String>('user_role', defaultValue: '')!;
   Future<void> setUserRole(String role) => saveSetting('user_role', role);
 
   bool get isWearer => userRole == 'wearer';
   bool get isCaregiver => userRole == 'caregiver';
   bool get hasSelectedRole => userRole.isNotEmpty;
 
-  /// Cloud server URL (cho người giám sát ở xa)
-  String get cloudUrl =>
-      getSetting<String>('cloud_url', defaultValue: '')!;
+  /// Mã thiết bị edge/Raspberry mà người đeo nhập thủ công.
+  String get deviceCode => getSetting<String>('device_code', defaultValue: '')!;
+  Future<void> setDeviceCode(String code) =>
+      saveSetting('device_code', code.trim().toUpperCase());
+
+  /// Cloud server URL is an internal build/config value, not an onboarding field.
+  String get cloudUrl => getSetting<String>('cloud_url', defaultValue: '')!;
   Future<void> setCloudUrl(String url) => saveSetting('cloud_url', url);
+
+  String get caregiverName =>
+      getSetting<String>('caregiver_name', defaultValue: '')!;
+  Future<void> setCaregiverName(String name) =>
+      saveSetting('caregiver_name', name);
 
   /// ID người được theo dõi (cho caregiver)
   String get monitorTargetId =>
@@ -133,7 +136,7 @@ class StorageService {
   String get pairingCode =>
       getSetting<String>('pairing_code', defaultValue: '')!;
   Future<void> setPairingCode(String code) =>
-      saveSetting('pairing_code', code);
+      saveSetting('pairing_code', code.trim().toUpperCase());
 
   /// Onboarding hoàn tất
   bool get onboardingCompleted =>
@@ -142,8 +145,7 @@ class StorageService {
       saveSetting('onboarding_completed', v);
 
   /// Demo mode
-  bool get isDemoMode =>
-      getSetting<bool>('demo_mode', defaultValue: false)!;
+  bool get isDemoMode => getSetting<bool>('demo_mode', defaultValue: false)!;
   Future<void> setDemoMode(bool v) => saveSetting('demo_mode', v);
 
   // ─── Alerts cache ───
@@ -163,7 +165,8 @@ class StorageService {
   /// Lưu cache JSON
   Future<void> cacheData(String key, dynamic data) async {
     await _cacheBoxInstance.put(key, jsonEncode(data));
-    await _cacheBoxInstance.put('${key}_time', DateTime.now().toIso8601String());
+    await _cacheBoxInstance.put(
+        '${key}_time', DateTime.now().toIso8601String());
   }
 
   /// Đọc cache JSON

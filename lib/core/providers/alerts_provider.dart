@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/alert_model.dart';
 import '../services/api_service.dart';
 import '../services/mock_data_service.dart';
+import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import 'vitals_provider.dart';
 
@@ -38,23 +39,28 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
   final ApiService _apiService;
   final StorageService _storageService;
   final MockDataService _mockDataService;
+  final NotificationService _notificationService;
   final bool _isDemoMode;
   StreamSubscription? _mockSubscription;
   Timer? _apiPollingTimer;
+  final Map<String, DateTime> _lastNotifiedAt = {};
+  bool _hasLoadedOnce = false;
 
   AlertsNotifier(
     this._apiService,
     this._storageService,
     this._mockDataService, {
+    required NotificationService notificationService,
     required bool isDemoMode,
-  })  : _isDemoMode = isDemoMode,
+  })  : _notificationService = notificationService,
+        _isDemoMode = isDemoMode,
         super(const AlertsState()) {
     if (_isDemoMode) {
       _listenToMockAlerts();
       loadAlerts();
     } else {
       loadAlerts();
-      _apiPollingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _apiPollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
         loadAlerts(showLoading: false);
       });
     }
@@ -76,10 +82,19 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
     final byId = <String, AlertModel>{
       for (final alert in state.alerts) alert.id: alert,
     };
+    final beforeIds = byId.keys.toSet();
+
     for (final alert in incoming) {
+      if (!alert.isCritical && _hasRecentDuplicate(byId.values, alert)) {
+        continue;
+      }
       final wasRead = _storageService.isAlertRead(alert.id) ||
           (byId[alert.id]?.isRead ?? false);
       byId[alert.id] = alert.copyWith(isRead: wasRead);
+
+      if (_hasLoadedOnce && !beforeIds.contains(alert.id)) {
+        unawaited(_notifyNewAlert(alert));
+      }
     }
     final updated = byId.values.toList()
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
@@ -92,6 +107,76 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
       unreadCount: updated.where((a) => !a.isRead).length,
       error: null,
     );
+    _hasLoadedOnce = true;
+  }
+
+  bool _hasRecentDuplicate(Iterable<AlertModel> existing, AlertModel incoming) {
+    final key = _dedupeKey(incoming);
+    return existing.any((alert) {
+      if (alert.isCritical) return false;
+      return _dedupeKey(alert) == key &&
+          (alert.timestamp.difference(incoming.timestamp).abs().inMinutes < 10);
+    });
+  }
+
+  String _dedupeKey(AlertModel alert) {
+    return '${alert.type.toLowerCase()}_${alert.level}_${alert.detail}';
+  }
+
+  Future<void> _notifyNewAlert(AlertModel alert) async {
+    final level = alert.level.toUpperCase();
+    if (level == 'SAFE') return;
+    if (!_isNotificationAllowed(alert)) return;
+
+    final key = '${alert.type}_$level';
+    final now = DateTime.now();
+    final last = _lastNotifiedAt[key];
+    final cooldown = alert.isCritical
+        ? const Duration(seconds: 30)
+        : const Duration(minutes: 5);
+    if (last != null && now.difference(last) < cooldown) return;
+
+    _lastNotifiedAt[key] = now;
+    await _notificationService.showAlertNotification(
+      level: alert.level,
+      title: _notificationTitle(alert),
+      body: alert.detail.isNotEmpty ? alert.detail : alert.type,
+    );
+  }
+
+  bool _isNotificationAllowed(AlertModel alert) {
+    final level = alert.level.toUpperCase();
+    if (level == 'CRITICAL' && !_storageService.notifCritical) return false;
+    if (level == 'ALERT' && !_storageService.notifAlert) return false;
+    if (level == 'WATCH' && !_storageService.notifWatch) return false;
+
+    if (!_bypassesQuietHours(alert) &&
+        _storageService.quietHoursEnabled &&
+        _notificationService.isQuietHours()) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _bypassesQuietHours(AlertModel alert) {
+    final type = alert.type.toLowerCase();
+    return alert.isCritical ||
+        type.contains('fall') ||
+        type.contains('tachy') ||
+        type.contains('brady') ||
+        type.contains('afib');
+  }
+
+  String _notificationTitle(AlertModel alert) {
+    final type = alert.type.toLowerCase();
+    if (type.contains('fall')) return 'Cảnh báo té ngã';
+    if (type.contains('tachy') || type.contains('brady')) {
+      return 'Nhịp tim nguy hiểm';
+    }
+    if (type.contains('afib') || type.contains('rhythm')) {
+      return 'Bất thường nhịp tim';
+    }
+    return 'Cảnh báo sức khỏe';
   }
 
   Future<void> loadAlerts({int limit = 80, bool showLoading = true}) async {
@@ -173,11 +258,13 @@ final alertsProvider =
   final apiService = ref.watch(apiServiceProvider);
   final storageService = ref.watch(storageServiceProvider);
   final mockDataService = ref.watch(mockDataServiceProvider);
+  final notificationService = ref.watch(notificationServiceProvider);
 
   return AlertsNotifier(
     apiService,
     storageService,
     mockDataService,
+    notificationService: notificationService,
     isDemoMode: storageService.isDemoMode,
   );
 });

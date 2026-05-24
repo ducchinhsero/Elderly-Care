@@ -24,9 +24,21 @@ class ApiService {
 
   String get baseUrl => _baseUrl;
 
-  void configure({required String baseUrl}) {
+  void configure({
+    required String baseUrl,
+    String? accessCode,
+    String? deviceCode,
+  }) {
     _baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), '');
     _dio.options.baseUrl = _baseUrl;
+    _dio.options.headers.remove('X-Access-Code');
+    _dio.options.headers.remove('X-Device-Code');
+    if (accessCode != null && accessCode.trim().isNotEmpty) {
+      _dio.options.headers['X-Access-Code'] = accessCode.trim();
+    }
+    if (deviceCode != null && deviceCode.trim().isNotEmpty) {
+      _dio.options.headers['X-Device-Code'] = deviceCode.trim();
+    }
   }
 
   /// GET /latest-result - latest model output.
@@ -85,7 +97,8 @@ class ApiService {
       final response = await _dio.get(
         '$_baseUrl/health-report',
         queryParameters: {
-          if (patientId != null && patientId.isNotEmpty) 'patient_id': patientId,
+          if (patientId != null && patientId.isNotEmpty)
+            'patient_id': patientId,
           'daily_hours': dailyHours,
           'long_term_days': longTermDays,
         },
@@ -107,10 +120,88 @@ class ApiService {
 
   Future<Map<String, dynamic>> startCalibration() async {
     try {
-      final response = await _dio.post('$_baseUrl/api/calibrate');
+      final response = await _dio.post('$_baseUrl/personal-baseline/update-progressive');
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
       throw ApiException('Cannot start calibration: ${e.message}');
+    }
+  }
+
+  Future<Map<String, dynamic>> getGuidedBaselineStatus({
+    String patientId = 'polar_h10',
+  }) async {
+    try {
+      final response = await _dio.get(
+        '$_baseUrl/guided-baseline/status',
+        queryParameters: {'patient_id': patientId},
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException('Cannot load guided baseline status: ${e.message}');
+    }
+  }
+
+  Future<Map<String, dynamic>> startGuidedBaseline({
+    String patientId = 'polar_h10',
+    int targetDays = 7,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '$_baseUrl/guided-baseline/start',
+        data: {
+          'patient_id': patientId,
+          'target_days': targetDays,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException('Cannot start guided baseline: ${e.message}');
+    }
+  }
+
+  Future<Map<String, dynamic>> completeGuidedBaselineSegment({
+    required String patientId,
+    required String sessionId,
+    required String segmentType,
+    DateTime? startedAt,
+    DateTime? endedAt,
+    bool allowSkip = false,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '$_baseUrl/guided-baseline/segment/complete',
+        data: {
+          'patient_id': patientId,
+          'session_id': sessionId,
+          'segment_type': segmentType,
+          if (startedAt != null) 'started_at': startedAt.toIso8601String(),
+          if (endedAt != null) 'ended_at': endedAt.toIso8601String(),
+          'allow_skip': allowSkip,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException('Cannot complete guided segment: ${e.message}');
+    }
+  }
+
+  Future<Map<String, dynamic>> completeGuidedBaselineDay({
+    required String patientId,
+    required String sessionId,
+    int targetDays = 7,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '$_baseUrl/guided-baseline/complete-day',
+        data: {
+          'patient_id': patientId,
+          'session_id': sessionId,
+          'target_days': targetDays,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException('Cannot complete guided baseline day: ${e.message}');
     }
   }
 

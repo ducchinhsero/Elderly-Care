@@ -8,19 +8,29 @@ class AppStrings {
   static const String appSubtitle = 'Theo dõi sức khỏe người cao tuổi';
 
   // ─── Role Selection (Onboarding) ───
-  static const String roleSelectionTitle = 'Chọn vai trò của bạn';
-  static const String roleSelectionSubtitle = 'Ứng dụng sẽ được tối ưu theo vai trò bạn chọn';
+  static const String roleSelectionTitle = 'Kết nối bằng mã';
+  static const String roleSelectionSubtitle =
+      'Nhập mã thiết bị hoặc mã truy cập trước khi vào màn hình theo dõi';
   static const String roleWearer = 'Người đeo';
-  static const String roleWearerDesc = 'Tôi là người được theo dõi sức khỏe.\nKết nối trực tiếp với thiết bị qua mạng nội bộ.';
+  static const String roleWearerDesc =
+      'Nhập mã thiết bị Raspberry/edge đang xử lý dữ liệu tại chỗ.';
   static const String roleCaregiver = 'Người giám sát';
-  static const String roleCaregiverDesc = 'Tôi là người thân/bác sĩ theo dõi từ xa.\nNhận thông báo và xem dữ liệu qua internet.';
+  static const String roleCaregiverDesc =
+      'Nhập mã truy cập được cấp để nhận dữ liệu từ cloud.';
   static const String continueBtn = 'Tiếp tục';
   static const String changeRole = 'Đổi vai trò';
+  static const String deviceCode = 'Mã thiết bị';
+  static const String deviceCodeHint = 'VD: ELD-2026-001';
+  static const String accessCode = 'Mã truy cập';
+  static const String accessCodeHint = 'VD: CARE-123-ABC';
+  static const String wearerSetupTitle = 'Thông tin người đeo';
+  static const String caregiverSetupTitle = 'Thông tin người giám sát';
 
   // ─── Remote / Cloud ───
-  static const String cloudServerUrl = 'Địa chỉ server cloud';
-  static const String cloudServerHint = 'https://your-server.com';
+  static const String cloudServerUrl = 'Cloud hệ thống';
+  static const String cloudServerHint = 'Được cấu hình khi build app';
   static const String monitoringTarget = 'Người được theo dõi';
+  static const String caregiverName = 'Tên người giám sát';
   static const String remoteMode = 'Chế độ từ xa';
   static const String localMode = 'Chế độ nội bộ';
   static const String wsConnected = 'WebSocket đã kết nối';
@@ -52,6 +62,8 @@ class AppStrings {
   static const String noData = 'Chưa có dữ liệu';
   static const String connecting = 'Đang kết nối...';
   static const String connected = 'Đã kết nối';
+  static const String synced = 'Đã đồng bộ';
+  static const String realtimeReconnecting = 'Realtime đang kết nối lại';
   static const String disconnected = 'Mất kết nối';
   static const String reconnecting = 'Đang kết nối lại...';
   static const String noDataTimeout = 'Không nhận được dữ liệu > 60 giây';
@@ -121,32 +133,43 @@ class AppStrings {
   static String alertTypeTitle(String type) {
     switch (type.toUpperCase()) {
       case 'TACHYCARDIA':
+      case 'TACHYCARDIA_AT_REST':
         return 'Nhịp tim nhanh bất thường';
       case 'BRADYCARDIA':
         return 'Nhịp tim chậm bất thường';
       case 'IRREGULAR_RHYTHM':
+      case 'RHYTHM_ALERT':
+      case 'AFIB_SUSPICION':
         return 'Nhịp tim không đều';
       case 'VERY_LOW_HRV':
         return 'Biến thiên nhịp tim rất thấp';
       case 'FALL_DETECTED':
+      case 'FALL_CANDIDATE':
+      case 'STRONG_FALL':
         return '⚠️ Phát hiện ngã!';
       default:
         return 'Cảnh báo sức khỏe';
     }
   }
 
-  static String alertTypeDetail(String type, {double? hr, double? rmssd, String? activity}) {
+  static String alertTypeDetail(String type,
+      {double? hr, double? rmssd, String? activity}) {
     switch (type.toUpperCase()) {
       case 'TACHYCARDIA':
+      case 'TACHYCARDIA_AT_REST':
         final actText = activity != null ? activityText(activity) : '';
         return 'Nhịp tim nhanh ${hr?.toStringAsFixed(0) ?? '--'} BPM khi $actText';
       case 'BRADYCARDIA':
         return 'Nhịp tim chậm ${hr?.toStringAsFixed(0) ?? '--'} BPM';
       case 'IRREGULAR_RHYTHM':
+      case 'RHYTHM_ALERT':
+      case 'AFIB_SUSPICION':
         return 'Nhịp tim không đều (có thể rung nhĩ)';
       case 'VERY_LOW_HRV':
         return 'Biến thiên nhịp tim rất thấp ${rmssd?.toStringAsFixed(1) ?? '--'} ms';
       case 'FALL_DETECTED':
+      case 'FALL_CANDIDATE':
+      case 'STRONG_FALL':
         return 'Phát hiện ngã! Kiểm tra ngay!';
       default:
         return 'Cần theo dõi sức khỏe';
@@ -207,8 +230,10 @@ class AppStrings {
   static const String personalThresholds = 'Ngưỡng cá nhân hóa';
   static const String calibrateBaseline = 'Calibrate baseline';
   static const String calibrating = 'Đang calibrate...';
-  static const String calibrateSuccess = 'Calibrate thành công! Ngưỡng đã cập nhật';
-  static const String calibrateExplain = 'Vui lòng ngồi nghỉ yên 30 phút để hệ thống đo baseline nhịp tim và HRV của bạn.';
+  static const String calibrateSuccess =
+      'Calibrate thành công! Ngưỡng đã cập nhật';
+  static const String calibrateExplain =
+      'Vui lòng ngồi nghỉ yên 30 phút để hệ thống đo baseline nhịp tim và HRV của bạn.';
   static const String notCalibrated = 'Chưa calibrate';
   static const String calibrated = 'Đã calibrate';
   static const String needRecalibrate = 'Cần calibrate lại';

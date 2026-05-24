@@ -5,6 +5,7 @@ import '../models/vitals_model.dart';
 import '../services/api_service.dart';
 import '../services/mock_data_service.dart';
 import '../services/mqtt_service.dart';
+import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
 
@@ -52,6 +53,8 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
   final ApiService _apiService;
   final WebSocketService _wsService;
   final MockDataService _mockDataService;
+  final StorageService _storageService;
+  final NotificationService _notificationService;
   final bool _isRemoteMode;
   final bool _isDemoMode;
 
@@ -61,14 +64,19 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
   Timer? _apiPollingTimer;
   Timer? _reportTimer;
   bool _isRefreshing = false;
+  final Map<String, DateTime> _lastNotifiedAt = {};
 
   VitalsNotifier(
     this._apiService,
     this._wsService,
     this._mockDataService, {
+    required StorageService storageService,
+    required NotificationService notificationService,
     required bool isRemoteMode,
     required bool isDemoMode,
-  })  : _isRemoteMode = isRemoteMode,
+  })  : _storageService = storageService,
+        _notificationService = notificationService,
+        _isRemoteMode = isRemoteMode,
         _isDemoMode = isDemoMode,
         super(const VitalsState()) {
     if (_isDemoMode) {
@@ -137,6 +145,94 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
       isLoading: false,
       error: null,
     );
+
+    unawaited(_notifyImmediateAlerts(vitals));
+  }
+
+  Future<void> _notifyImmediateAlerts(VitalsModel vitals) async {
+    final urgentAlerts =
+        vitals.clinicalAlerts.where(_isImmediateClinicalAlert).toList();
+
+    if (urgentAlerts.isEmpty && !vitals.isCritical) return;
+
+    final alerts = urgentAlerts.isNotEmpty
+        ? urgentAlerts
+        : [
+            ClinicalAlert(
+              type: 'critical_vitals',
+              level: vitals.alertLevel,
+              detail: vitals.message,
+            )
+          ];
+
+    for (final alert in alerts.take(2)) {
+      final level = alert.level.toUpperCase();
+      final key = '${alert.type}_$level';
+      final now = DateTime.now();
+      final last = _lastNotifiedAt[key];
+      final cooldown = level == 'CRITICAL'
+          ? const Duration(seconds: 30)
+          : const Duration(minutes: 3);
+
+      if (last != null && now.difference(last) < cooldown) continue;
+      if (!_isNotificationAllowed(level, force: _bypassesQuietHours(alert))) {
+        continue;
+      }
+
+      _lastNotifiedAt[key] = now;
+      await _notificationService.showAlertNotification(
+        level: level,
+        title: _notificationTitle(alert),
+        body: alert.detail.isEmpty ? vitals.message : alert.detail,
+      );
+    }
+  }
+
+  bool _isImmediateClinicalAlert(ClinicalAlert alert) {
+    final type = alert.type.toLowerCase();
+    final level = alert.level.toUpperCase();
+    final isFall = type.contains('fall');
+    final isDangerousHeart = type.contains('tachy') ||
+        type.contains('brady') ||
+        type.contains('afib') ||
+        type.contains('rhythm');
+
+    return isFall ||
+        level == 'CRITICAL' ||
+        (isDangerousHeart && (level == 'ALERT' || level == 'CRITICAL'));
+  }
+
+  bool _bypassesQuietHours(ClinicalAlert alert) {
+    final type = alert.type.toLowerCase();
+    return alert.level.toUpperCase() == 'CRITICAL' ||
+        type.contains('fall') ||
+        type.contains('tachy') ||
+        type.contains('brady') ||
+        type.contains('afib');
+  }
+
+  bool _isNotificationAllowed(String level, {required bool force}) {
+    if (level == 'CRITICAL' && !_storageService.notifCritical) return false;
+    if (level == 'ALERT' && !_storageService.notifAlert) return false;
+    if (level == 'WATCH' && !_storageService.notifWatch) return false;
+    if (!force &&
+        _storageService.quietHoursEnabled &&
+        _notificationService.isQuietHours()) {
+      return false;
+    }
+    return true;
+  }
+
+  String _notificationTitle(ClinicalAlert alert) {
+    final type = alert.type.toLowerCase();
+    if (type.contains('fall')) return 'Cảnh báo té ngã';
+    if (type.contains('tachy') || type.contains('brady')) {
+      return 'Nhịp tim nguy hiểm';
+    }
+    if (type.contains('afib') || type.contains('rhythm')) {
+      return 'Bất thường nhịp tim';
+    }
+    return 'Cảnh báo sức khỏe';
   }
 
   void _startTimeoutCheck() {
@@ -211,12 +307,21 @@ final mqttServiceProvider = Provider<MqttService>((ref) {
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   final storage = ref.watch(storageServiceProvider);
-  return ApiService()..configure(baseUrl: storage.apiBaseUrl);
+  return ApiService()
+    ..configure(
+      baseUrl: storage.apiBaseUrl,
+      accessCode: storage.isCaregiver ? storage.pairingCode : null,
+      deviceCode: storage.isWearer ? storage.deviceCode : null,
+    );
 });
 
 final webSocketServiceProvider = Provider<WebSocketService>((ref) {
   final storage = ref.watch(storageServiceProvider);
-  final service = WebSocketService()..configure(serverUrl: storage.apiBaseUrl);
+  final service = WebSocketService()
+    ..configure(
+      serverUrl: storage.apiBaseUrl,
+      accessCode: storage.isCaregiver ? storage.pairingCode : null,
+    );
   ref.onDispose(() => service.dispose());
   return service;
 });
@@ -231,14 +336,12 @@ final isRemoteModeProvider = Provider<bool>((ref) {
   return storage.isCaregiver;
 });
 
-final mqttConnectionStateProvider =
-    StreamProvider<MqttConnectionState>((ref) {
+final mqttConnectionStateProvider = StreamProvider<MqttConnectionState>((ref) {
   final mqttService = ref.watch(mqttServiceProvider);
   return mqttService.connectionStateStream;
 });
 
-final wsConnectionStateProvider =
-    StreamProvider<WsConnectionState>((ref) {
+final wsConnectionStateProvider = StreamProvider<WsConnectionState>((ref) {
   final wsService = ref.watch(webSocketServiceProvider);
   return wsService.connectionStateStream;
 });
@@ -249,17 +352,27 @@ final mockDataServiceProvider = Provider<MockDataService>((ref) {
   return service;
 });
 
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  final service = NotificationService();
+  unawaited(service.init());
+  ref.onDispose(() => service.dispose());
+  return service;
+});
+
 final vitalsProvider =
     StateNotifierProvider<VitalsNotifier, VitalsState>((ref) {
   final apiService = ref.watch(apiServiceProvider);
   final wsService = ref.watch(webSocketServiceProvider);
   final mockDataService = ref.watch(mockDataServiceProvider);
   final storage = ref.watch(storageServiceProvider);
+  final notificationService = ref.watch(notificationServiceProvider);
 
   return VitalsNotifier(
     apiService,
     wsService,
     mockDataService,
+    storageService: storage,
+    notificationService: notificationService,
     isRemoteMode: storage.isCaregiver,
     isDemoMode: storage.isDemoMode,
   );

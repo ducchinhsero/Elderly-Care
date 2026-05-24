@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:vibration/vibration.dart';
 
 /// Service quản lý push notification (FCM + local)
 /// Đơn giản hóa — Firebase cần setup riêng cho từng platform
@@ -24,7 +26,8 @@ class NotificationService {
     required String title,
     required String body,
   }) async {
-    debugPrint('🚨 CRITICAL NOTIFICATION: $title - $body');
+    debugPrint('CRITICAL NOTIFICATION: $title - $body');
+    await _strongLocalSignal();
     // TODO: Implement actual notification khi Firebase được setup
     // - Heads-up notification
     // - Âm thanh cảnh báo
@@ -36,7 +39,8 @@ class NotificationService {
     required String title,
     required String body,
   }) async {
-    debugPrint('⚠️ ALERT NOTIFICATION: $title - $body');
+    debugPrint('ALERT NOTIFICATION: $title - $body');
+    await _shortLocalSignal();
     // TODO: Implement notification thường
   }
 
@@ -45,7 +49,7 @@ class NotificationService {
     required String title,
     required String body,
   }) async {
-    debugPrint('👀 WATCH NOTIFICATION: $title - $body');
+    debugPrint('WATCH NOTIFICATION: $title - $body');
     // TODO: Badge only, không âm thanh
   }
 
@@ -65,6 +69,29 @@ class NotificationService {
       case 'WATCH':
         await showWatch(title: title, body: body);
         break;
+    }
+  }
+
+  Future<void> _strongLocalSignal() async {
+    try {
+      await SystemSound.play(SystemSoundType.alert);
+      await HapticFeedback.heavyImpact();
+      if (await Vibration.hasVibrator()) {
+        await Vibration.vibrate(pattern: [0, 700, 250, 700, 250, 900]);
+      }
+    } catch (e) {
+      debugPrint('NotificationService: strong signal error - $e');
+    }
+  }
+
+  Future<void> _shortLocalSignal() async {
+    try {
+      await HapticFeedback.mediumImpact();
+      if (await Vibration.hasVibrator()) {
+        await Vibration.vibrate(duration: 350);
+      }
+    } catch (e) {
+      debugPrint('NotificationService: short signal error - $e');
     }
   }
 
