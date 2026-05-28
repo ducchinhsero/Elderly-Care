@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../utils/health_display_mapper.dart';
+
 class VitalsModel {
   final DateTime timestamp;
   final String patientId;
@@ -424,13 +426,13 @@ String _conditionKey(
 String _conditionName(
     String rhythmLabel, String ectopyLabel, double afibProbability) {
   if (rhythmLabel == 'possible_afib') {
-    return 'Nghi ngờ rung nhĩ (${(afibProbability * 100).round()}%)';
+    return 'Có dấu hiệu nhịp tim không đều';
   }
-  if (rhythmLabel == 'other_rhythm') return 'Nhịp khác cần theo dõi';
-  if (ectopyLabel == 'pvc') return 'Có dấu hiệu PVC';
-  if (ectopyLabel == 'pac') return 'Có dấu hiệu PAC';
-  if (ectopyLabel == 'mixed_ectopic') return 'Có dấu hiệu ngoại tâm thu';
-  if (rhythmLabel == 'normal') return 'Nhịp tim bình thường';
+  if (rhythmLabel == 'other_rhythm') return 'Nhịp tim cần theo dõi thêm';
+  if (ectopyLabel == 'pvc') return 'Có nhịp đến sớm';
+  if (ectopyLabel == 'pac') return 'Có nhịp đến sớm';
+  if (ectopyLabel == 'mixed_ectopic') return 'Có nhịp đến sớm';
+  if (rhythmLabel == 'normal') return 'Nhịp tim đang đều';
   return 'Đang phân tích nhịp tim';
 }
 
@@ -441,7 +443,7 @@ String _qualitySummary(
   final accStd = activityFeatures['acc_vm_std'];
   final movement =
       accStd == null ? '' : ' | vận động ${_num(accStd).toStringAsFixed(1)} mG';
-  return 'Tín hiệu $label, độ tin cậy $score%$movement';
+  return '${HealthDisplayMapper.signalLabel(label)}, độ tin cậy $score%$movement';
 }
 
 String _summaryMessage(String alertLevel, List<ClinicalAlert> alerts) {
@@ -493,7 +495,8 @@ List<ClinicalAlert> _clinicalAlertsFromJson(
           : 'WATCH',
       detail: _str(
         rhythmAlert['message'],
-        fallback: 'Có mẫu nhịp giống rung nhĩ. Nên tiếp tục theo dõi.',
+        fallback:
+            'Khoảng đo gần đây có dấu hiệu nhịp tim không đều. Nên tiếp tục theo dõi.',
       ),
     ));
   }
@@ -503,7 +506,7 @@ List<ClinicalAlert> _clinicalAlertsFromJson(
     alerts.add(ClinicalAlert(
       type: 'ectopy_suspicion',
       level: 'WATCH',
-      detail: 'Có dấu hiệu ngoại tâm thu PVC/PAC trong cửa sổ gần nhất.',
+      detail: 'Có dấu hiệu nhịp đến sớm trong cửa sổ đo gần nhất.',
     ));
   }
   if (_str(hrEvent['label']).contains('tachycardia') ||
@@ -512,15 +515,14 @@ List<ClinicalAlert> _clinicalAlertsFromJson(
       type: _str(hrEvent['label'], fallback: 'heart_rate_event'),
       level: mappedAlert == 'SAFE' ? 'WATCH' : mappedAlert,
       detail: _str(hrEvent['message'],
-          fallback: 'Nhịp tim nằm ngoài ngưỡng theo ngữ cảnh.'),
+          fallback: 'Nhịp tim nằm ngoài mức thường thấy theo bối cảnh.'),
     ));
   }
   if (anomalyLabel == 'abnormal') {
     alerts.add(const ClinicalAlert(
       type: 'ecg_anomaly',
       level: 'WATCH',
-      detail:
-          'ECG có cửa sổ bất thường, cần xem cùng chất lượng tín hiệu và lịch sử.',
+      detail: 'Có điểm đo cần xem lại cùng chất lượng tín hiệu và lịch sử.',
     ));
   }
   return alerts;

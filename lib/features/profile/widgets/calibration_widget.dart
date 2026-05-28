@@ -63,7 +63,7 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
         _message = null;
       });
     } catch (e) {
-      setState(() => _message = 'Khong tai duoc trang thai baseline: $e');
+      setState(() => _message = 'Không tải được trạng thái thiết lập: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -80,7 +80,7 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
       setState(() {
         _session = session;
         _status = GuidedBaselineStatus.fromJson(json);
-        _message = 'Da bat dau ngay ${session.dayIndex}/${session.targetDays}.';
+        _message = 'Đã bắt đầu ngày ${session.dayIndex}/${session.targetDays}.';
       });
       await ref.read(storageServiceProvider).cacheData(
         'guided_baseline_session',
@@ -92,7 +92,7 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
         },
       );
     } catch (e) {
-      setState(() => _message = 'Khong the bat dau baseline: $e');
+      setState(() => _message = 'Không thể bắt đầu thiết lập: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -109,7 +109,8 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _activePlan == null) return;
       if (_isCurrentDataValidFor(_activePlan!)) {
-        setState(() => _remainingSeconds = (_remainingSeconds - 1).clamp(0, 9999).toInt());
+        setState(() =>
+            _remainingSeconds = (_remainingSeconds - 1).clamp(0, 9999).toInt());
       } else {
         setState(() => _message = _pauseReason(_activePlan!));
       }
@@ -140,14 +141,14 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
         _activePlan = null;
         _segmentStartedAt = null;
         _message = resultStatus == 'completed'
-            ? '${plan.title} da dat yeu cau.'
+            ? '${plan.title} đã đạt yêu cầu.'
             : resultStatus == 'skipped'
-                ? '${plan.title} da duoc bo qua.'
-                : '${plan.title} chua dat yeu cau. Hay thu lai.';
+                ? '${plan.title} đã được bỏ qua.'
+                : '${plan.title} chưa đạt yêu cầu. Hãy thử lại.';
       });
       await _loadStatus();
     } catch (e) {
-      setState(() => _message = 'Khong the luu segment: $e');
+      setState(() => _message = 'Không thể lưu bước này: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -168,14 +169,14 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
       setState(() {
         _status = GuidedBaselineStatus.fromJson(statusJson);
         _session = _status?.latestSession;
-        _message = 'Da cap nhat baseline ca nhan cho ngay nay.';
+        _message = 'Đã cập nhật mức bình thường riêng cho ngày này.';
       });
       await ref.read(storageServiceProvider).cacheData(
-        'guided_baseline_last_result',
-        json,
-      );
+            'guided_baseline_last_result',
+            json,
+          );
     } catch (e) {
-      setState(() => _message = 'Chua the hoan tat ngay baseline: $e');
+      setState(() => _message = 'Chưa thể hoàn tất ngày thiết lập: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -187,18 +188,19 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
     final qualityOk = vitals.hasReliableSignal;
     final activity = vitals.activity.toUpperCase();
     final expected = plan.expectedActivity.toUpperCase();
-    final activityOk =
-        expected == 'ACTIVE' ? activity == 'ACTIVE' || activity == 'WALK' : activity == expected;
+    final activityOk = expected == 'ACTIVE'
+        ? activity == 'ACTIVE' || activity == 'WALK'
+        : activity == expected;
     return qualityOk && activityOk;
   }
 
   String _pauseReason(GuidedBaselineSegmentPlan plan) {
     final vitals = ref.read(vitalsProvider).currentVitals;
-    if (vitals == null) return 'Dang cho du lieu realtime tu Polar H10.';
+    if (vitals == null) return 'Đang chờ dữ liệu đo từ thiết bị.';
     if (!vitals.hasReliableSignal) {
-      return 'Tam dung: tin hieu ECG chua on dinh. Hay chinh day deo Polar H10.';
+      return 'Tạm dừng: tín hiệu đo chưa ổn định. Hãy chỉnh lại dây đeo/cảm biến.';
     }
-    return 'Tam dung: hoat dong hien tai la ${vitals.activity}, can ${plan.expectedActivity}.';
+    return 'Tạm dừng: hoạt động hiện tại chưa khớp yêu cầu của bước này.';
   }
 
   @override
@@ -219,7 +221,7 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Hieu chinh baseline ca nhan 7 ngay',
+                    'Thiết lập mức bình thường của bạn',
                     style: Theme.of(context)
                         .textTheme
                         .titleSmall
@@ -236,8 +238,9 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
             const SizedBox(height: 8),
             Text(
               status?.statusText ??
-                  'App se huong dan nguoi deo thuc hien REST, WALK va ACTIVE de baseline chinh xac hon.',
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  'App cần vài ngày dữ liệu tốt để hiểu mức bình thường riêng của người dùng.',
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
             LinearProgressIndicator(
@@ -247,7 +250,7 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
             ),
             const SizedBox(height: 8),
             Text(
-              status?.progressText ?? 'Chua co tien do',
+              status?.progressText ?? 'Chưa có tiến độ',
               style: const TextStyle(fontSize: 12, color: AppColors.textHint),
             ),
             if (_message != null) ...[
@@ -261,12 +264,12 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
                 child: ElevatedButton.icon(
                   onPressed: _loading ? null : _startSession,
                   icon: const Icon(Icons.play_arrow),
-                  label: const Text('Bat dau huong dan hom nay'),
+                  label: const Text('Bắt đầu hướng dẫn hôm nay'),
                 ),
               )
             else ...[
               Text(
-                'Ngay ${session.dayIndex}/${session.targetDays}',
+                'Ngày ${session.dayIndex}/${session.targetDays}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
@@ -281,7 +284,8 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
                     onComplete: _activePlan?.segmentType == plan.segmentType
                         ? () => _completeActiveSegment()
                         : null,
-                    onSkip: plan.skippable && _activePlan?.segmentType == plan.segmentType
+                    onSkip: plan.skippable &&
+                            _activePlan?.segmentType == plan.segmentType
                         ? () => _completeActiveSegment(skip: true)
                         : null,
                   )),
@@ -289,9 +293,11 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: _canCompleteDay(session) && !_loading ? _completeDay : null,
+                  onPressed: _canCompleteDay(session) && !_loading
+                      ? _completeDay
+                      : null,
                   icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Hoan tat ngay baseline'),
+                  label: const Text('Hoàn tất ngày thiết lập'),
                 ),
               ),
             ],
@@ -305,7 +311,8 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
     );
   }
 
-  GuidedBaselineSegment? _segmentFor(GuidedBaselineSession session, String type) {
+  GuidedBaselineSegment? _segmentFor(
+      GuidedBaselineSession session, String type) {
     for (final item in session.segments) {
       if (item.segmentType.toUpperCase() == type.toUpperCase()) return item;
     }
@@ -314,12 +321,12 @@ class _CalibrationWidgetState extends ConsumerState<CalibrationWidget> {
 
   bool _canCompleteDay(GuidedBaselineSession session) {
     if (session.segments.isEmpty) return false;
-    return session.segments.every((item) =>
-        item.status == 'completed' || item.status == 'skipped');
+    return session.segments.every(
+        (item) => item.status == 'completed' || item.status == 'skipped');
   }
 
   String _instructionFor(GuidedBaselineSegmentPlan plan) =>
-      '${plan.userInstruction} Timer chi chay khi tin hieu tot va hoat dong khop yeu cau.';
+      '${plan.userInstruction} Đồng hồ chỉ chạy khi tín hiệu tốt và hoạt động khớp yêu cầu.';
 }
 
 class _SegmentTile extends StatelessWidget {
@@ -372,13 +379,13 @@ class _SegmentTile extends StatelessWidget {
           if (active) ...[
             const SizedBox(height: 8),
             Text(
-              'Con lai ${_formatTime(remainingSeconds)}',
+              'Còn lại ${_formatTime(remainingSeconds)}',
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ] else if (segment != null) ...[
             const SizedBox(height: 6),
             Text(
-              'Hop le ${segment!.validWindowCount} windows, loai ${segment!.rejectedWindowCount} windows',
+              'Hợp lệ ${segment!.validWindowCount} lượt đo, loại ${segment!.rejectedWindowCount} lượt đo',
               style: const TextStyle(fontSize: 12, color: AppColors.textHint),
             ),
           ],
@@ -388,13 +395,14 @@ class _SegmentTile extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onStart,
                 icon: const Icon(Icons.play_arrow),
-                label: Text(status == 'failed' ? 'Thu lai' : 'Bat dau'),
+                label: Text(status == 'failed' ? 'Thử lại' : 'Bắt đầu'),
               ),
               if (active) ...[
                 const SizedBox(width: 8),
-                TextButton(onPressed: onComplete, child: const Text('Luu ngay')),
+                TextButton(
+                    onPressed: onComplete, child: const Text('Lưu ngay')),
                 if (onSkip != null)
-                  TextButton(onPressed: onSkip, child: const Text('Bo qua')),
+                  TextButton(onPressed: onSkip, child: const Text('Bỏ qua')),
               ],
             ],
           ),
@@ -452,7 +460,8 @@ class _StatusChip extends StatelessWidget {
       ),
       child: Text(
         _text(status),
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+        style:
+            TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color),
       ),
     );
   }
@@ -460,15 +469,15 @@ class _StatusChip extends StatelessWidget {
   String _text(String status) {
     switch (status) {
       case 'completed':
-        return 'dat';
+        return 'đạt';
       case 'running':
-        return 'dang thu';
+        return 'đang thử';
       case 'failed':
-        return 'can thu lai';
+        return 'cần thử lại';
       case 'skipped':
-        return 'bo qua';
+        return 'bỏ qua';
       default:
-        return 'cho';
+        return 'chờ';
     }
   }
 }

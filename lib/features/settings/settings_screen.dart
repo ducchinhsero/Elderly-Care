@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/vitals_provider.dart';
+import '../../core/utils/health_display_mapper.dart';
 import 'widgets/alert_threshold_widget.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -27,6 +28,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _darkMode = false;
   bool _isTesting = false;
   bool? _testResult;
+  bool _isCheckingTechnical = false;
+  bool? _technicalHealthResult;
 
   @override
   void initState() {
@@ -193,6 +196,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 16),
 
+          _buildTechnicalDataSection(storage),
+          const SizedBox(height: 16),
+
           // ── Thông báo ──
           _SectionHeader(
               title: AppStrings.notifications,
@@ -297,6 +303,92 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Widget _buildTechnicalDataSection(dynamic storage) {
+    final headers = storage.isCaregiver
+        ? HealthDisplayMapper.caregiverHeaders
+        : HealthDisplayMapper.wearerHeaders;
+    final roleText = storage.isCaregiver
+        ? 'Người giám sát dùng cloud'
+        : 'Người đeo dùng gateway nội bộ';
+
+    return Card(
+      child: ExpansionTile(
+        leading: const Icon(Icons.data_object, color: AppColors.primary),
+        title: const Text(
+          'Dữ liệu kỹ thuật',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: const Text(
+          'API, backend và mapping cảnh báo',
+          style: TextStyle(fontSize: 12),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          _TechnicalRow(label: 'Backend hiện tại', value: storage.apiBaseUrl),
+          _TechnicalRow(label: 'Cách chọn URL', value: roleText),
+          _TechnicalRow(label: 'Header gửi kèm', value: headers.join(', ')),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed:
+                      _isCheckingTechnical ? null : _checkTechnicalHealth,
+                  icon: _isCheckingTechnical
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.health_and_safety_outlined),
+                  label: const Text('Kiểm tra /health'),
+                ),
+              ),
+              if (_technicalHealthResult != null) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  _technicalHealthResult!
+                      ? Icons.check_circle
+                      : Icons.error_outline,
+                  color: _technicalHealthResult!
+                      ? AppColors.safe
+                      : AppColors.critical,
+                ),
+              ],
+            ],
+          ),
+          const Divider(height: 24),
+          _TechnicalList(
+            title: 'API app đang gọi',
+            items: HealthDisplayMapper.apiEndpoints,
+          ),
+          const Divider(height: 24),
+          _MappingList(items: HealthDisplayMapper.alertMappings),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _checkTechnicalHealth() async {
+    setState(() {
+      _isCheckingTechnical = true;
+      _technicalHealthResult = null;
+    });
+    final storage = ref.read(storageServiceProvider);
+    final api = ref.read(apiServiceProvider)
+      ..configure(
+        baseUrl: storage.apiBaseUrl,
+        accessCode: storage.isCaregiver ? storage.pairingCode : null,
+        deviceCode: storage.isWearer ? storage.deviceCode : null,
+      );
+    final result = await api.healthCheck();
+    if (!mounted) return;
+    setState(() {
+      _isCheckingTechnical = false;
+      _technicalHealthResult = result;
+    });
+  }
+
   Future<void> _testConnection() async {
     setState(() {
       _isTesting = true;
@@ -368,6 +460,138 @@ class _SectionHeader extends StatelessWidget {
                   fontWeight: FontWeight.w600, color: AppColors.primary)),
         ],
       ),
+    );
+  }
+}
+
+class _TechnicalRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _TechnicalRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 116,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              value.isEmpty ? '--' : value,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TechnicalList extends StatelessWidget {
+  final String title;
+  final List<String> items;
+
+  const _TechnicalList({required this.title, required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        ...items.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('• ', style: TextStyle(color: AppColors.textHint)),
+                Expanded(
+                  child: SelectableText(
+                    item,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MappingList extends StatelessWidget {
+  final List<AlertMappingInfo> items;
+
+  const _MappingList({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Mapping cảnh báo',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        ...items.map(
+          (item) => Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundLight,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SelectableText(
+                  item.backendType,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textHint,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.userTitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  item.userAction,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

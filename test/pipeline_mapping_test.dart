@@ -129,12 +129,12 @@ void main() {
     });
 
     expect(report.overallLevel, 'high');
-    expect(report.userLevelText, 'Nen trao doi voi nhan vien y te');
-    expect(report.realtime.windowLabel, 'Cua so moi nhat');
+    expect(report.userLevelText, 'Cần kiểm tra');
+    expect(report.realtime.windowLabel, 'Lần đo gần nhất');
     expect(report.daily.findings.first.type, 'afib_suspicion');
     expect(report.daily.findings.first.displayTitle,
-        'Nghi ngo rung nhi/roi loan nhip');
-    expect(report.longTerm.windowLabel, contains('7 ngay'));
+        'Dấu hiệu nhịp tim không đều');
+    expect(report.longTerm.windowLabel, contains('7 ngày'));
     expect(report.personalBaseline.status, 'warming_up');
     expect(report.personalBaseline.comparisonRows, isNotEmpty);
   });
@@ -152,7 +152,7 @@ void main() {
 
     expect(report.daily.findings, isEmpty);
     expect(report.personalBaseline.calibrated, isFalse);
-    expect(healthLevelText('medium'), 'Can theo doi');
+    expect(healthLevelText('medium'), 'Cần theo dõi');
   });
 
   test('AlertModel parses event timeline payload', () {

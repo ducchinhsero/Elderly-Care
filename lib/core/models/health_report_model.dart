@@ -1,3 +1,5 @@
+import '../utils/health_display_mapper.dart';
+
 class HealthReportModel {
   final String patientId;
   final String overallLevel;
@@ -169,47 +171,48 @@ class PersonalBaseline {
   }
 
   String get statusText {
-    if (!calibrated) return 'Chua co muc nen ca nhan';
+    if (!calibrated) return 'Chưa có mức bình thường riêng';
     switch (status.toLowerCase()) {
       case 'ready':
-        return 'Da du 7 ngay';
+        return 'Đã đủ dữ liệu so sánh';
       case 'warming_up':
-        return 'Dang hieu chinh tam thoi';
+        return 'Đang thiết lập tạm thời';
       case 'not_ready':
-        return 'Dang thu thap du lieu';
+        return 'Đang thu thập dữ liệu';
       default:
-        return 'Dang hieu chinh';
+        return 'Đang thiết lập';
     }
   }
 
   String get progressText {
-    if (!calibrated) return 'Can thu thap du lieu trong cac ngay dau su dung.';
-    return 'Ngay $dayCount/$targetDays'
-        ' - ${(progressRatio.clamp(0, 1) * 100).round()}% tien do';
+    if (!calibrated)
+      return 'Cần vài ngày dữ liệu tốt để so sánh chính xác hơn.';
+    return 'Ngày $dayCount/$targetDays'
+        ' - ${(progressRatio.clamp(0, 1) * 100).round()}% tiến độ';
   }
 
   List<BaselineComparison> get comparisonRows {
     final rows = <BaselineComparison>[
       BaselineComparison.fromValue(
-        label: 'HR trung binh',
+        label: 'Nhịp tim trung bình',
         unit: 'bpm',
         value: comparisons['mean_hr_delta_bpm'],
       ),
       BaselineComparison.fromValue(
-        label: 'HR khi nghi',
+        label: 'Nhịp tim khi nghỉ',
         unit: 'bpm',
         value: comparisons['resting_hr_delta_bpm'],
       ),
       BaselineComparison.fromRatio(
-        label: 'AF suspicion',
+        label: 'Nhịp tim không đều',
         value: comparisons['af_suspicion_ratio_delta'],
       ),
       BaselineComparison.fromRatio(
-        label: 'PVC/PAC',
+        label: 'Nhịp đến sớm',
         value: comparisons['ectopy_ratio_delta'],
       ),
       BaselineComparison.fromRatio(
-        label: 'Anomaly',
+        label: 'Điểm đo cần xem lại',
         value: comparisons['abnormal_ratio_delta'],
       ),
     ];
@@ -267,12 +270,12 @@ class BaselineComparison {
 
   String get interpretation {
     final current = value;
-    if (current == null) return 'Chua du du lieu';
+    if (current == null) return 'Chưa đủ dữ liệu';
     if (current.abs() < (isPercent ? 0.01 : 3.0)) {
-      return 'Gan voi muc nen ca nhan';
+      return 'Gần với mức bình thường riêng';
     }
-    if (current > 0) return 'Cao hon muc nen ca nhan';
-    return 'Thap hon muc nen ca nhan';
+    if (current > 0) return 'Cao hơn mức bình thường riêng';
+    return 'Thấp hơn mức bình thường riêng';
   }
 }
 
@@ -293,79 +296,55 @@ int healthSeverityRank(String level) {
 }
 
 String healthLevelText(String level) {
-  switch (level.toLowerCase()) {
-    case 'critical':
-      return 'Can ho tro ngay';
-    case 'high':
-      return 'Nen trao doi voi nhan vien y te';
-    case 'medium':
-      return 'Can theo doi';
-    case 'low':
-    case 'normal':
-      return 'On dinh';
-    default:
-      return 'Chua du du lieu';
-  }
+  return HealthDisplayMapper.levelLabel(level);
 }
 
 String healthActionText(String level) {
-  switch (level.toLowerCase()) {
-    case 'critical':
-      return 'Kiem tra nguoi dung ngay va lien he cap cuu/nhan vien y te neu co trieu chung bat thuong.';
-    case 'high':
-      return 'Nen ghi nhan trieu chung va trao doi voi nhan vien y te, dac biet neu tinh trang lap lai.';
-    case 'medium':
-      return 'Tiep tuc theo doi. Neu co met, dau nguc, kho tho, choang vang hoac bat thuong lap lai, nen di kham.';
-    case 'low':
-    case 'normal':
-      return 'Tiep tuc theo doi dinh ky va duy tri lich su do.';
-    default:
-      return 'Can thu thap them du lieu ECG tot truoc khi dua ra nhan dinh.';
-  }
+  return HealthDisplayMapper.levelAction(level);
 }
 
 String findingTitle(String type, {required String fallback}) {
   final key = type.toLowerCase();
   if (key.contains('afib') || key.contains('af_suspicion')) {
-    return 'Nghi ngo rung nhi/roi loan nhip';
+    return 'Dấu hiệu nhịp tim không đều';
   }
   if (key.contains('ectopy') || key.contains('pvc') || key.contains('pac')) {
-    return 'Hoat dong PVC/PAC bat thuong';
+    return 'Có nhiều nhịp đến sớm';
   }
   if (key.contains('heart_rate') ||
       key.contains('tachy') ||
       key.contains('brady')) {
-    return 'Nhip tim nhanh/cham bat thuong';
+    return 'Nhịp tim nhanh/chậm hơn bình thường';
   }
-  if (key.contains('fall')) return 'Nghi ngo te nga';
+  if (key.contains('fall')) return 'Nghi ngờ té ngã';
   if (key.contains('poor_signal') || key.contains('signal_quality')) {
-    return 'Chat luong tin hieu kem';
+    return 'Tín hiệu đo chưa tốt';
   }
-  if (key.contains('anomaly')) return 'Xu huong ECG bat thuong';
+  if (key.contains('anomaly')) return 'Có điểm đo cần xem lại';
   return fallback.isEmpty ? type : fallback;
 }
 
 String findingActionText(String type, String level) {
   final key = type.toLowerCase();
   if (key.contains('fall')) {
-    return 'Kiem tra nguoi dung ngay va xac nhan co te nga hay khong.';
+    return 'Kiểm tra người dùng ngay và xác nhận có té ngã hay không.';
   }
   if (key.contains('poor_signal') || key.contains('signal_quality')) {
-    return 'Kiem tra day deo, tiep xuc dien cuc va thu lai truoc khi ket luan.';
+    return 'Chỉnh lại dây đeo/cảm biến rồi đo lại trước khi kết luận.';
   }
   if (key.contains('afib') || key.contains('af_suspicion')) {
-    return 'Neu ket qua lap lai hoac co hoi hop, met, kho tho, choang vang, nen trao doi voi nhan vien y te.';
+    return 'Nếu kết quả lặp lại hoặc có hồi hộp, mệt, khó thở, choáng váng, nên trao đổi với nhân viên y tế.';
   }
   if (key.contains('ectopy') || key.contains('pvc') || key.contains('pac')) {
-    return 'Theo doi tan suat. Neu tang len so voi muc nen hoac co trieu chung, nen di kham tim mach.';
+    return 'Theo dõi tần suất. Nếu tăng lên so với mức bình thường riêng hoặc có triệu chứng, nên đi khám.';
   }
   if (key.contains('heart_rate') ||
       key.contains('tachy') ||
       key.contains('brady')) {
-    return 'Kiem tra boi canh van dong/nghi ngoi. Neu nhip bat thuong keo dai, nen lien he nhan vien y te.';
+    return 'Kiểm tra người dùng đang nghỉ hay vận động. Nếu nhịp bất thường kéo dài, nên liên hệ nhân viên y tế.';
   }
   if (key.contains('anomaly')) {
-    return 'Nen xem lai lich su do va trao doi voi nhan vien y te neu bat thuong lap lai.';
+    return 'Xem lại lịch sử đo và trao đổi với nhân viên y tế nếu bất thường lặp lại.';
   }
   return healthActionText(level);
 }
@@ -387,14 +366,14 @@ int _int(dynamic value, {int fallback = 0}) {
 
 String _windowLabel(Map<String, dynamic> window) {
   final mode = (window['mode'] ?? '').toString();
-  if (mode == 'latest_window') return 'Cua so moi nhat';
+  if (mode == 'latest_window') return 'Lần đo gần nhất';
   if (mode == 'rolling_24h') {
-    return '${_num(window['hours']).toStringAsFixed(0)} gio gan nhat';
+    return '${_num(window['hours']).toStringAsFixed(0)} giờ gần nhất';
   }
   if (mode == 'rolling_days') {
     final days = _num(window['days']).toStringAsFixed(0);
     final count = window['prediction_count'] ?? 0;
-    return '$days ngay, $count lan do';
+    return '$days ngày, $count lần đo';
   }
   return mode.isEmpty ? '--' : mode;
 }

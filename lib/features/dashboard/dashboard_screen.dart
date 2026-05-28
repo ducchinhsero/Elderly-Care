@@ -8,6 +8,7 @@ import '../../core/constants/app_strings.dart';
 import '../../core/providers/vitals_provider.dart';
 import '../../core/providers/alerts_provider.dart';
 import '../../core/providers/user_provider.dart';
+import '../../core/utils/health_display_mapper.dart';
 import 'widgets/hr_gauge_widget.dart';
 import 'widgets/hrv_card_widget.dart';
 import 'widgets/activity_badge_widget.dart';
@@ -75,7 +76,7 @@ class DashboardScreen extends ConsumerWidget {
           ),
           PopupMenuButton<int>(
             icon: const Icon(Icons.picture_as_pdf_outlined),
-            tooltip: 'Tạo báo cáo lâm sàng',
+            tooltip: 'Tạo tóm tắt sức khỏe',
             onSelected: (days) {
               Navigator.push(
                   context,
@@ -164,7 +165,7 @@ class DashboardScreen extends ConsumerWidget {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Baseline ca nhan: ${vitalsState.healthReport!.personalBaseline.progressText}. Tiep tuc huong dan trong Ho so.',
+                            'Mức bình thường của riêng bạn: ${vitalsState.healthReport!.personalBaseline.progressText}. Tiếp tục hướng dẫn trong Hồ sơ.',
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -185,7 +186,7 @@ class DashboardScreen extends ConsumerWidget {
               HRGaugeWidget(
                 hrBpm: vitals?.hrBpm ?? 0,
                 alertLevel: vitals?.alertLevel ?? 'SAFE',
-                conditionNameVi: vitals?.beatName ?? 'Nhịp xoang bình thường',
+                conditionNameVi: vitals?.beatName ?? 'Nhịp tim đang đều',
                 confidence: 1.0 -
                     (vitals?.anomalyScore ??
                         0.0), // Mock confidence from anomaly
@@ -195,6 +196,8 @@ class DashboardScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               if (vitals != null) ...[
+                _FriendlyStatusSection(vitals: vitals),
+                const SizedBox(height: 16),
                 _ModelOutputSection(vitals: vitals),
                 const SizedBox(height: 16),
               ],
@@ -331,13 +334,29 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-class _ModelOutputSection extends StatelessWidget {
+class _FriendlyStatusSection extends StatelessWidget {
   final dynamic vitals;
 
-  const _ModelOutputSection({required this.vitals});
+  const _FriendlyStatusSection({required this.vitals});
 
   @override
   Widget build(BuildContext context) {
+    final color = AppColors.fromAlertLevel(vitals.alertLevel);
+    final primaryAlert =
+        vitals.clinicalAlerts.isNotEmpty ? vitals.clinicalAlerts.first : null;
+    final whatHappened = primaryAlert == null
+        ? HealthDisplayMapper.rhythmSummary(
+            vitals.rhythmLabel,
+            vitals.afibProbability,
+          )
+        : HealthDisplayMapper.alertTitle(primaryAlert.type);
+    final why = primaryAlert == null
+        ? 'Dựa trên nhịp tim, chất lượng tín hiệu và lần đo gần nhất.'
+        : HealthDisplayMapper.alertWhy(primaryAlert.type);
+    final action = primaryAlert == null
+        ? HealthDisplayMapper.levelAction(vitals.alertLevel)
+        : HealthDisplayMapper.alertAction(primaryAlert.type, vitals.alertLevel);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -346,41 +365,223 @@ class _ModelOutputSection extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.analytics_outlined,
-                    size: 20, color: AppColors.primary),
+                Icon(Icons.health_and_safety_outlined, color: color),
                 const SizedBox(width: 8),
-                Text(
-                  'Kết quả phân tích từ model',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                Expanded(
+                  child: Text(
+                    'Tình trạng hiện tại',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
                 ),
+                _LevelChip(level: vitals.alertLevel),
               ],
             ),
             const SizedBox(height: 12),
-            _MetricRow(
-              label: 'Nhịp tim',
-              value:
-                  '${vitals.rhythmLabel} | AFib ${(vitals.afibProbability * 100).round()}%',
-              detail:
-                  'Độ tin cậy rhythm ${(vitals.rhythmConfidence * 100).round()}%',
+            _SimpleInfoRow(
+              icon: Icons.info_outline,
+              title: 'Tình trạng',
+              text: whatHappened,
+              color: color,
             ),
-            const Divider(height: 16),
-            _MetricRow(
-              label: 'PVC/PAC',
-              value: vitals.ectopyLabel,
-              detail:
-                  'PVC ${(vitals.pvcProbability * 100).round()}%, PAC ${(vitals.pacProbability * 100).round()}%',
+            const SizedBox(height: 10),
+            _SimpleInfoRow(
+              icon: Icons.help_outline,
+              title: 'Vì sao cần chú ý',
+              text: why,
+              color: AppColors.primary,
             ),
-            const Divider(height: 16),
-            _MetricRow(
-              label: 'Tín hiệu',
-              value: vitals.signalQualityLabel,
-              detail:
-                  'Điểm ${(vitals.signalQualityScore * 100).round()}% - ${vitals.riskReason.isEmpty ? vitals.message : vitals.riskReason}',
+            const SizedBox(height: 10),
+            _SimpleInfoRow(
+              icon: Icons.task_alt,
+              title: 'Việc nên làm',
+              text: action,
+              color: color,
+              emphasize: true,
+            ),
+            const Divider(height: 24),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _MeasuredChip(
+                  icon: Icons.favorite,
+                  label: 'Nhịp tim',
+                  value: '${vitals.hrBpm.toStringAsFixed(0)} BPM',
+                ),
+                _MeasuredChip(
+                  icon: Icons.monitor_heart_outlined,
+                  label: HealthDisplayMapper.metricLabel('hrv'),
+                  value: vitals.rmssdMs > 0
+                      ? '${vitals.rmssdMs.toStringAsFixed(1)} ms'
+                      : 'Chưa đủ dữ liệu',
+                ),
+                _MeasuredChip(
+                  icon: Icons.sensors_outlined,
+                  label: 'Chất lượng đo',
+                  value: HealthDisplayMapper.signalLabel(
+                    vitals.signalQualityLabel,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SimpleInfoRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String text;
+  final Color color;
+  final bool emphasize;
+
+  const _SimpleInfoRow({
+    required this.icon,
+    required this.title,
+    required this.text,
+    required this.color,
+    this.emphasize = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: emphasize ? 0.10 : 0.06),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MeasuredChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _MeasuredChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundLight,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModelOutputSection extends StatelessWidget {
+  final dynamic vitals;
+
+  const _ModelOutputSection({required this.vitals});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        leading: const Icon(Icons.data_object, color: AppColors.primary),
+        title: const Text(
+          'Xem dữ liệu kỹ thuật lượt đo',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: const Text(
+          'Dành cho người chăm sóc hoặc kỹ thuật viên',
+          style: TextStyle(fontSize: 12),
+        ),
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _MetricRow(
+                label: 'Rhythm',
+                value:
+                    '${vitals.rhythmLabel} | possible_afib ${(vitals.afibProbability * 100).round()}%',
+                detail:
+                    'Người dùng thấy: ${HealthDisplayMapper.rhythmSummary(vitals.rhythmLabel, vitals.afibProbability)}',
+              ),
+              const Divider(height: 16),
+              _MetricRow(
+                label: 'Ectopy',
+                value: vitals.ectopyLabel,
+                detail:
+                    'PVC ${(vitals.pvcProbability * 100).round()}%, PAC ${(vitals.pacProbability * 100).round()}% | Người dùng thấy: ${HealthDisplayMapper.ectopySummary(vitals.ectopyLabel)}',
+              ),
+              const Divider(height: 16),
+              _MetricRow(
+                label: 'Signal',
+                value:
+                    '${vitals.signalQualityLabel} (${(vitals.signalQualityScore * 100).round()}%)',
+                detail:
+                    '${HealthDisplayMapper.signalLabel(vitals.signalQualityLabel)} - ${vitals.riskReason.isEmpty ? vitals.message : vitals.riskReason}',
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -406,7 +607,7 @@ class _TimeLayerReportSection extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Báo cáo sức khỏe theo thời gian',
+                    'Tóm tắt sức khỏe theo thời gian',
                     style: Theme.of(context)
                         .textTheme
                         .titleSmall
@@ -428,7 +629,7 @@ class _TimeLayerReportSection extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: () => context.go('/report'),
                 icon: const Icon(Icons.assignment_outlined),
-                label: const Text('Xem bao cao va khuyen nghi'),
+                label: const Text('Xem tóm tắt và khuyến nghị'),
               ),
             ),
           ],
@@ -572,18 +773,7 @@ Color _levelColor(String level) {
 }
 
 String _levelText(String level) {
-  switch (level.toLowerCase()) {
-    case 'critical':
-      return 'Khẩn cấp';
-    case 'high':
-      return 'Cao';
-    case 'medium':
-      return 'Theo dõi';
-    case 'low':
-      return 'Thấp';
-    default:
-      return 'Chưa đủ dữ liệu';
-  }
+  return HealthDisplayMapper.levelLabel(level);
 }
 
 /// Card cho LF/HF Ratio

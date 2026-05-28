@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/models/vitals_model.dart';
+import '../../../core/utils/health_display_mapper.dart';
 
 /// Banner cảnh báo khi alert_level != SAFE
 class AlertBannerWidget extends StatelessWidget {
@@ -23,9 +24,7 @@ class AlertBannerWidget extends StatelessWidget {
     final darkColor = AppColors.darkFromAlertLevel(alertLevel);
     final isCritical = alertLevel.toUpperCase() == 'CRITICAL';
 
-    final firstAlert = clinicalAlerts.isNotEmpty
-        ? clinicalAlerts.first
-        : null;
+    final firstAlert = clinicalAlerts.isNotEmpty ? clinicalAlerts.first : null;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -69,10 +68,24 @@ class AlertBannerWidget extends StatelessWidget {
                 if (firstAlert != null) ...[
                   const SizedBox(height: 2),
                   Text(
-                    AppStrings.alertTypeTitle(firstAlert.type),
+                    HealthDisplayMapper.alertTitle(firstAlert.type),
                     style: TextStyle(
                       fontSize: 12,
                       color: darkColor.withValues(alpha: 0.8),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    HealthDisplayMapper.alertAction(
+                      firstAlert.type,
+                      alertLevel,
+                    ),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: darkColor,
+                      fontWeight: FontWeight.w700,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

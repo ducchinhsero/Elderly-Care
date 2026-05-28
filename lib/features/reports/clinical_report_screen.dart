@@ -1,8 +1,6 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
-import '../../core/models/user_profile.dart';
 import '../../core/providers/user_provider.dart';
 import 'pdf_generator.dart';
 

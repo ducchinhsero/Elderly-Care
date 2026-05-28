@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/health_display_mapper.dart';
 
-/// Card hiển thị RMSSD (HRV) với icon tim
+/// Card hiển thị mức phục hồi/căng thẳng cơ thể với icon tim.
 class HrvCardWidget extends StatelessWidget {
   final double rmssd;
   final String rmssdNormal;
@@ -38,12 +38,16 @@ class HrvCardWidget extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  AppStrings.rmssd,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
+                Expanded(
+                  child: Text(
+                    HealthDisplayMapper.metricLabel('hrv'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -81,7 +85,7 @@ class HrvCardWidget extends StatelessWidget {
               Text(
                 hasRmssd
                     ? rmssdNormal
-                    : 'Backend chưa gửi RMSSD; đang hiển thị chất lượng tín hiệu.',
+                    : 'Chưa đủ dữ liệu để ước tính mức phục hồi.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textHint,
                       fontSize: 10,

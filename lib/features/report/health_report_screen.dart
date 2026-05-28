@@ -126,18 +126,18 @@ class HealthReportScreen extends ConsumerWidget {
   ) {
     final now = DateTime.now().toString().substring(0, 10);
     final buffer = StringBuffer()
-      ..writeln('Bao cao suc khoe - $now')
-      ..writeln('Diem tong quan: $score/100');
+      ..writeln('Tóm tắt sức khỏe - $now')
+      ..writeln('Điểm tổng quan: $score/100');
 
     if (report != null) {
       buffer
-        ..writeln('Muc hien tai: ${report.userLevelText}')
+        ..writeln('Mức hiện tại: ${report.userLevelText}')
         ..writeln(report.overallSummary.isEmpty
             ? report.userActionText
             : report.overallSummary)
-        ..writeln('Khuyen nghi: ${report.userActionText}');
+        ..writeln('Việc nên làm: ${report.userActionText}');
       if (report.hasFindings) {
-        buffer.writeln('Bat thuong noi bat:');
+        buffer.writeln('Điểm cần chú ý:');
         for (final finding in report.importantFindings.take(3)) {
           buffer.writeln('- ${finding.displayTitle}: ${finding.actionText}');
         }
@@ -146,15 +146,15 @@ class HealthReportScreen extends ConsumerWidget {
 
     if (stats != null) {
       buffer
-        ..writeln('Nhip tim TB: ${stats.hrAvg.toStringAsFixed(0)} BPM')
-        ..writeln('So canh bao: ${stats.alertCount}')
+        ..writeln('Nhịp tim trung bình: ${stats.hrAvg.toStringAsFixed(0)} BPM')
+        ..writeln('Số cảnh báo: ${stats.alertCount}')
         ..writeln(
-          'Thoi gian binh thuong: ${stats.normalPercent.toStringAsFixed(0)}%',
+          'Thời gian ổn định: ${stats.normalPercent.toStringAsFixed(0)}%',
         );
     }
 
     buffer.writeln(
-        'Luu y: day la sang loc/nghi ngo nguy co, khong phai chan doan y khoa.');
+        'Lưu ý: đây là dữ liệu theo dõi/sàng lọc, không phải chẩn đoán y khoa.');
     Share.share(buffer.toString(), subject: AppStrings.healthReport);
   }
 }
@@ -190,7 +190,7 @@ class _OverallAssessmentCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Tong quan suc khoe',
+                        'Tóm tắt dễ hiểu',
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium
@@ -214,7 +214,7 @@ class _OverallAssessmentCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               report.overallSummary.isEmpty
-                  ? 'He thong dang tong hop trang thai tu du lieu realtime, 24 gio va 7 ngay.'
+                  ? 'Hệ thống đang tổng hợp tình trạng từ lần đo gần nhất, 24 giờ và nhiều ngày.'
                   : report.overallSummary,
               style: const TextStyle(height: 1.4),
             ),
@@ -242,15 +242,15 @@ class _TimeLayerCard extends StatelessWidget {
           children: [
             _SectionTitle(
               icon: Icons.timeline_outlined,
-              title: 'Bao cao theo thoi gian',
-              subtitle: 'Tach rieng hien tai, 24 gio va xu huong nhieu ngay.',
+              title: 'Theo dõi theo thời gian',
+              subtitle: 'Tách riêng hiện tại, 24 giờ và xu hướng nhiều ngày.',
             ),
             const SizedBox(height: 12),
-            _LayerRow(label: 'Hien tai', layer: report.realtime),
+            _LayerRow(label: 'Hiện tại', layer: report.realtime),
             const Divider(height: 18),
-            _LayerRow(label: '24 gio gan nhat', layer: report.daily),
+            _LayerRow(label: '24 giờ gần nhất', layer: report.daily),
             const Divider(height: 18),
-            _LayerRow(label: '7 ngay gan nhat', layer: report.longTerm),
+            _LayerRow(label: '7 ngày gần nhất', layer: report.longTerm),
           ],
         ),
       ),
@@ -274,16 +274,16 @@ class _FindingsCard extends StatelessWidget {
           children: [
             _SectionTitle(
               icon: Icons.manage_search,
-              title: 'Bat thuong va khuyen nghi',
+              title: 'Điểm cần chú ý và việc nên làm',
               subtitle:
-                  'Cac muc nay la sang loc nguy co, khong phai chan doan.',
+                  'Các mục này là dữ liệu theo dõi/sàng lọc, không phải chẩn đoán.',
             ),
             const SizedBox(height: 12),
             if (findings.isEmpty)
               _InfoBanner(
                 icon: Icons.check_circle_outline,
                 text:
-                    'Chua phat hien mau bat thuong dang chu y trong du lieu hien co. Tiep tuc theo doi dinh ky.',
+                    'Chưa phát hiện điểm đáng chú ý trong dữ liệu hiện có. Tiếp tục theo dõi định kỳ.',
                 color: AppColors.safe,
               )
             else
@@ -314,9 +314,9 @@ class _PersonalBaselineCard extends StatelessWidget {
           children: [
             _SectionTitle(
               icon: Icons.person_search_outlined,
-              title: 'So sanh voi muc nen ca nhan',
+              title: 'So sánh với mức bình thường của riêng bạn',
               subtitle:
-                  'Dung de xem thay doi so voi binh thuong cua nguoi dung.',
+                  'Dùng để xem thay đổi so với mức thường thấy của người dùng.',
             ),
             const SizedBox(height: 12),
             Row(
@@ -341,14 +341,14 @@ class _PersonalBaselineCard extends StatelessWidget {
             const SizedBox(height: 12),
             if (rows.isEmpty)
               Text(
-                'Chua du du lieu so sanh. Hay de thiet bi thu du lieu tot trong cac ngay dau su dung.',
+                'Chưa đủ dữ liệu so sánh. Hãy để thiết bị thu dữ liệu tốt trong các ngày đầu sử dụng.',
                 style: TextStyle(color: AppColors.textSecondary),
               )
             else
               ...rows.map((row) => _BaselineRow(row: row)),
             const SizedBox(height: 8),
             Text(
-              'Khong dung muc nen ca nhan de ket luan benh; chi dung de phat hien thay doi can theo doi.',
+              'Không dùng mức bình thường riêng để kết luận bệnh; chỉ dùng để phát hiện thay đổi cần theo dõi.',
               style: TextStyle(fontSize: 11, color: AppColors.textHint),
             ),
           ],
@@ -677,7 +677,7 @@ class _DisclaimerCard extends StatelessWidget {
     return _InfoBanner(
       icon: Icons.info_outline,
       text: disclaimer.isEmpty
-          ? 'Day la dau ra sang loc/nghi ngo nguy co, khong phai chan doan y khoa.'
+          ? 'Đây là dữ liệu theo dõi/sàng lọc, không phải chẩn đoán y khoa.'
           : disclaimer,
       color: AppColors.textSecondary,
     );
@@ -697,12 +697,12 @@ class _EmptyReportCard extends StatelessWidget {
             Icon(Icons.hourglass_empty, color: AppColors.textSecondary),
             const SizedBox(height: 8),
             const Text(
-              'Chua du du lieu bao cao',
+              'Chưa đủ dữ liệu để tóm tắt',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
             Text(
-              'Hay bat thiet bi va thu them ECG tot de tao bao cao suc khoe.',
+              'Hãy bật thiết bị và thu thêm dữ liệu đo tốt để tạo tóm tắt sức khỏe.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textSecondary),
             ),
@@ -736,14 +736,14 @@ class _ComparisonSection extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _CompRow(
-              label: 'HR trung binh',
+              label: 'Nhịp tim trung bình',
               value: '${stats!.hrAvg.toStringAsFixed(0)} BPM',
               trend: '--',
               color: AppColors.primary,
             ),
             const Divider(height: 16),
             _CompRow(
-              label: 'RMSSD trung binh',
+              label: 'Mức phục hồi trung bình',
               value: '${stats!.rmssdAvg.toStringAsFixed(1)} ms',
               trend: '--',
               color: AppColors.primary,
@@ -752,7 +752,7 @@ class _ComparisonSection extends StatelessWidget {
             _CompRow(
               label: AppStrings.avgAlerts,
               value: '${stats!.alertCount}',
-              trend: stats!.alertCount > 3 ? 'Tang' : 'On',
+              trend: stats!.alertCount > 3 ? 'Tăng' : 'Ổn',
               color: stats!.alertCount > 3 ? AppColors.alert : AppColors.safe,
             ),
           ],
@@ -835,21 +835,21 @@ String finalEvidenceText(Map<String, dynamic> evidence) {
 String _evidenceLabel(String key) {
   switch (key) {
     case 'event_count':
-      return 'So lan';
+      return 'Số lần';
     case 'max_afib_probability':
-      return 'AFib cao nhat';
+      return 'Nhịp không đều cao nhất';
     case 'af_suspicion_window_ratio':
-      return 'Ti le nghi ngo AF';
+      return 'Tỉ lệ nghi ngờ nhịp không đều';
     case 'max_af_burden_percent':
       return 'AF burden';
     case 'tachycardia_event_count':
       return 'Nhanh';
     case 'bradycardia_event_count':
-      return 'Cham';
+      return 'Chậm';
     case 'good_signal_ratio':
-      return 'Tin hieu tot';
+      return 'Tín hiệu tốt';
     case 'poor_signal_event_count':
-      return 'Tin hieu kem';
+      return 'Tín hiệu kém';
     default:
       return key.replaceAll('_', ' ');
   }

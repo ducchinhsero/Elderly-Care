@@ -1,3 +1,5 @@
+import '../utils/health_display_mapper.dart';
+
 /// Tất cả string tiếng Việt cho ứng dụng
 /// Ngôn ngữ mặc định: Tiếng Việt
 class AppStrings {
@@ -70,24 +72,13 @@ class AppStrings {
   static const String last30Min = '30 phút gần nhất';
 
   // ─── Alert Levels ───
-  static const String levelSafe = 'AN TOÀN';
-  static const String levelWatch = 'THEO DÕI';
-  static const String levelAlert = 'CẢNH BÁO';
-  static const String levelCritical = 'NGUY HIỂM';
+  static const String levelSafe = 'Ổn định';
+  static const String levelWatch = 'Cần theo dõi';
+  static const String levelAlert = 'Cần kiểm tra';
+  static const String levelCritical = 'Cần hỗ trợ ngay';
 
   static String alertLevelText(String level) {
-    switch (level.toUpperCase()) {
-      case 'SAFE':
-        return levelSafe;
-      case 'WATCH':
-        return levelWatch;
-      case 'ALERT':
-        return levelAlert;
-      case 'CRITICAL':
-        return levelCritical;
-      default:
-        return level;
-    }
+    return HealthDisplayMapper.levelLabel(level);
   }
 
   // ─── Activities ───
@@ -134,21 +125,21 @@ class AppStrings {
     switch (type.toUpperCase()) {
       case 'TACHYCARDIA':
       case 'TACHYCARDIA_AT_REST':
-        return 'Nhịp tim nhanh bất thường';
+        return 'Nhịp tim nhanh hơn bình thường';
       case 'BRADYCARDIA':
-        return 'Nhịp tim chậm bất thường';
+        return 'Nhịp tim chậm hơn bình thường';
       case 'IRREGULAR_RHYTHM':
       case 'RHYTHM_ALERT':
       case 'AFIB_SUSPICION':
-        return 'Nhịp tim không đều';
+        return 'Dấu hiệu nhịp tim không đều';
       case 'VERY_LOW_HRV':
-        return 'Biến thiên nhịp tim rất thấp';
+        return 'Cơ thể có dấu hiệu căng thẳng';
       case 'FALL_DETECTED':
       case 'FALL_CANDIDATE':
       case 'STRONG_FALL':
-        return '⚠️ Phát hiện ngã!';
+        return 'Nghi ngờ té ngã';
       default:
-        return 'Cảnh báo sức khỏe';
+        return HealthDisplayMapper.alertTitle(type);
     }
   }
 
@@ -158,21 +149,21 @@ class AppStrings {
       case 'TACHYCARDIA':
       case 'TACHYCARDIA_AT_REST':
         final actText = activity != null ? activityText(activity) : '';
-        return 'Nhịp tim nhanh ${hr?.toStringAsFixed(0) ?? '--'} BPM khi $actText';
+        return 'Nhịp tim ${hr?.toStringAsFixed(0) ?? '--'} BPM, cao hơn bình thường khi $actText';
       case 'BRADYCARDIA':
-        return 'Nhịp tim chậm ${hr?.toStringAsFixed(0) ?? '--'} BPM';
+        return 'Nhịp tim ${hr?.toStringAsFixed(0) ?? '--'} BPM, thấp hơn bình thường';
       case 'IRREGULAR_RHYTHM':
       case 'RHYTHM_ALERT':
       case 'AFIB_SUSPICION':
-        return 'Nhịp tim không đều (có thể rung nhĩ)';
+        return 'Khoảng đo gần đây có dấu hiệu nhịp tim không đều';
       case 'VERY_LOW_HRV':
-        return 'Biến thiên nhịp tim rất thấp ${rmssd?.toStringAsFixed(1) ?? '--'} ms';
+        return 'Mức phục hồi/căng thẳng cơ thể đang cần theo dõi';
       case 'FALL_DETECTED':
       case 'FALL_CANDIDATE':
       case 'STRONG_FALL':
-        return 'Phát hiện ngã! Kiểm tra ngay!';
+        return 'Cảm biến ghi nhận chuyển động giống té ngã. Hãy kiểm tra ngay.';
       default:
-        return 'Cần theo dõi sức khỏe';
+        return HealthDisplayMapper.alertWhy(type);
     }
   }
 
@@ -206,7 +197,7 @@ class AppStrings {
   static const String normalRange = 'Ngưỡng bình thường';
 
   // ─── Report ───
-  static const String healthReport = 'Báo cáo sức khỏe';
+  static const String healthReport = 'Tóm tắt sức khỏe';
   static const String dailyReport = 'Báo cáo ngày';
   static const String weeklyReport = 'Báo cáo tuần';
   static const String healthScore = 'Điểm sức khỏe';
@@ -228,15 +219,14 @@ class AppStrings {
   static const String comorbidities = 'Bệnh nền';
   static const String medications = 'Thuốc đang dùng';
   static const String personalThresholds = 'Ngưỡng cá nhân hóa';
-  static const String calibrateBaseline = 'Calibrate baseline';
-  static const String calibrating = 'Đang calibrate...';
-  static const String calibrateSuccess =
-      'Calibrate thành công! Ngưỡng đã cập nhật';
+  static const String calibrateBaseline = 'Thiết lập mức bình thường của bạn';
+  static const String calibrating = 'Đang thiết lập...';
+  static const String calibrateSuccess = 'Đã cập nhật mức bình thường của bạn';
   static const String calibrateExplain =
-      'Vui lòng ngồi nghỉ yên 30 phút để hệ thống đo baseline nhịp tim và HRV của bạn.';
-  static const String notCalibrated = 'Chưa calibrate';
-  static const String calibrated = 'Đã calibrate';
-  static const String needRecalibrate = 'Cần calibrate lại';
+      'App cần dữ liệu đo tốt trong vài ngày để biết mức bình thường riêng của bạn.';
+  static const String notCalibrated = 'Chưa thiết lập';
+  static const String calibrated = 'Đã thiết lập';
+  static const String needRecalibrate = 'Cần thiết lập lại';
   static const String emergencyContact = 'Liên hệ khẩn cấp';
   static const String emergencyName = 'Tên người thân';
   static const String emergencyPhone = 'Số điện thoại';

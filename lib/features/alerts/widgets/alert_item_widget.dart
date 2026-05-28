@@ -61,9 +61,13 @@ class AlertItemWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
+            _LabelText(label: 'Chuyện gì', text: alert.userTitle),
+            const SizedBox(height: 4),
+            _LabelText(label: 'Vì sao', text: alert.userDetail),
+            const SizedBox(height: 6),
             Text(
-              alert.userDetail,
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              alert.detail,
+              style: TextStyle(fontSize: 11, color: AppColors.textHint),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
@@ -132,5 +136,34 @@ class AlertItemWidget extends StatelessWidget {
       default:
         return Icons.warning_amber;
     }
+  }
+}
+
+class _LabelText extends StatelessWidget {
+  final String label;
+  final String text;
+
+  const _LabelText({required this.label, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return RichText(
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        style: const TextStyle(
+          fontSize: 12,
+          color: AppColors.textSecondary,
+          height: 1.3,
+        ),
+        children: [
+          TextSpan(
+            text: '$label: ',
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          TextSpan(text: text),
+        ],
+      ),
+    );
   }
 }

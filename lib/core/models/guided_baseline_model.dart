@@ -39,16 +39,16 @@ class GuidedBaselineStatus {
   String get statusText {
     switch (status.toLowerCase()) {
       case 'ready':
-        return 'Da du 7 ngay baseline';
+        return 'Đã đủ dữ liệu so sánh';
       case 'warming_up':
-        return 'Dang hieu chinh tam thoi';
+        return 'Đang thiết lập tạm thời';
       default:
-        return 'Chua du du lieu baseline';
+        return 'Chưa đủ dữ liệu so sánh';
     }
   }
 
   String get progressText =>
-      'Ngay $dayCount/$targetDays - ${(progressRatio.clamp(0, 1) * 100).round()}%';
+      'Ngày $dayCount/$targetDays - ${(progressRatio.clamp(0, 1) * 100).round()}%';
 }
 
 class GuidedBaselineSegmentPlan {
@@ -156,9 +156,10 @@ class GuidedBaselineSegment {
       durationSeconds: _int(json['duration_seconds']),
       validWindowCount: _int(json['valid_window_count']),
       rejectedWindowCount: _int(json['rejected_window_count']),
-      rejectionReasons: ((json['rejection_reasons'] as List<dynamic>?) ?? const [])
-          .map((item) => item.toString())
-          .toList(),
+      rejectionReasons:
+          ((json['rejection_reasons'] as List<dynamic>?) ?? const [])
+              .map((item) => item.toString())
+              .toList(),
     );
   }
 }
