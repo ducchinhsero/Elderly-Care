@@ -79,6 +79,16 @@ class StorageService {
   String get userId => getSetting<String>('user_id', defaultValue: 'default')!;
   Future<void> setUserId(String id) => saveSetting('user_id', id);
 
+  /// Basic identity captured during onboarding. These values mirror the local
+  /// profile so first-run data remains available even before profile hydration.
+  String get userDisplayName =>
+      getSetting<String>('user_display_name', defaultValue: '')!;
+  Future<void> setUserDisplayName(String name) =>
+      saveSetting('user_display_name', name.trim());
+
+  int get userAge => getSetting<int>('user_age', defaultValue: 0)!;
+  Future<void> setUserAge(int age) => saveSetting('user_age', age);
+
   /// Auto thresholds
   bool get autoThresholds =>
       getSetting<bool>('auto_thresholds', defaultValue: true)!;
@@ -94,7 +104,12 @@ class StorageService {
   String get emergencyPhone =>
       getSetting<String>('emergency_phone', defaultValue: '')!;
   Future<void> setEmergencyPhone(String phone) =>
-      saveSetting('emergency_phone', phone);
+      saveSetting('emergency_phone', phone.trim());
+
+  String get emergencyName =>
+      getSetting<String>('emergency_name', defaultValue: '')!;
+  Future<void> setEmergencyName(String name) =>
+      saveSetting('emergency_name', name.trim());
 
   // ─── Role & Remote Monitoring ───
 
@@ -118,19 +133,19 @@ class StorageService {
   String get caregiverName =>
       getSetting<String>('caregiver_name', defaultValue: '')!;
   Future<void> setCaregiverName(String name) =>
-      saveSetting('caregiver_name', name);
+      saveSetting('caregiver_name', name.trim());
 
   /// ID người được theo dõi (cho caregiver)
   String get monitorTargetId =>
       getSetting<String>('monitor_target_id', defaultValue: '')!;
   Future<void> setMonitorTargetId(String id) =>
-      saveSetting('monitor_target_id', id);
+      saveSetting('monitor_target_id', id.trim().toUpperCase());
 
   /// Tên người được theo dõi
   String get monitorTargetName =>
       getSetting<String>('monitor_target_name', defaultValue: '')!;
   Future<void> setMonitorTargetName(String name) =>
-      saveSetting('monitor_target_name', name);
+      saveSetting('monitor_target_name', name.trim());
 
   /// Mã ghép nối (pairing code)
   String get pairingCode =>

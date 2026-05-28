@@ -58,6 +58,10 @@ void main() {
       expect(storage.isDarkMode, isFalse);
       expect(storage.notifCritical, isTrue);
       expect(storage.userRole, '');
+      expect(storage.userDisplayName, '');
+      expect(storage.userAge, 0);
+      expect(storage.emergencyName, '');
+      expect(storage.emergencyPhone, '');
       expect(storage.hasSelectedRole, isFalse);
       expect(storage.onboardingCompleted, isFalse);
     });
@@ -90,6 +94,26 @@ void main() {
 
       expect(storage.deviceCode, 'ELD-2026-001');
       expect(storage.pairingCode, 'CARE-123-ABC');
+    });
+
+    test('persists first-run identity fields', () async {
+      await storage.setUserId('ELD-2026-001');
+      await storage.setUserDisplayName('Nguyen Van A');
+      await storage.setUserAge(72);
+      await storage.setEmergencyName('Nguyen Van B');
+      await storage.setEmergencyPhone('0901234567');
+      await storage.setMonitorTargetId('eld-2026-001');
+      await storage.setMonitorTargetName('Nguyen Van A');
+      await storage.setCaregiverName('Tran Thi C');
+
+      expect(storage.userId, 'ELD-2026-001');
+      expect(storage.userDisplayName, 'Nguyen Van A');
+      expect(storage.userAge, 72);
+      expect(storage.emergencyName, 'Nguyen Van B');
+      expect(storage.emergencyPhone, '0901234567');
+      expect(storage.monitorTargetId, 'ELD-2026-001');
+      expect(storage.monitorTargetName, 'Nguyen Van A');
+      expect(storage.caregiverName, 'Tran Thi C');
     });
   });
 

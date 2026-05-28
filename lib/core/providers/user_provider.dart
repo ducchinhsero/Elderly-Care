@@ -64,10 +64,10 @@ class UserNotifier extends StateNotifier<UserState> {
     state = state.copyWith(isLoading: true);
     try {
       final userId = _storageService.userId;
-      
+
       // Load local first
       var profile = await _repository.getProfile(userId);
-      
+
       if (profile == null) {
         if (_isDemoMode) {
           await Future.delayed(const Duration(milliseconds: 400));
@@ -80,12 +80,13 @@ class UserNotifier extends StateNotifier<UserState> {
             profile = UserProfile.fromJson(json);
             profile.uid = userId;
           } catch (e) {
-             profile = UserProfile.empty().copyWith(uid: userId);
+            profile = UserProfile.empty().copyWith(uid: userId);
           }
         }
         await _repository.saveProfile(profile);
       }
-      
+
+      await _syncProfileToSettings(profile);
       state = state.copyWith(
         profile: profile,
         isLoading: false,
@@ -102,6 +103,7 @@ class UserNotifier extends StateNotifier<UserState> {
   /// Cập nhật profile
   Future<void> updateProfile(UserProfile updated) async {
     await _repository.saveProfile(updated);
+    await _syncProfileToSettings(updated);
     state = state.copyWith(profile: updated);
   }
 
@@ -157,35 +159,51 @@ class UserNotifier extends StateNotifier<UserState> {
   Future<void> updateEmergencyContact(String name, String phone) async {
     if (state.profile != null) {
       final updated = state.profile!.copyWith(
-        emergencyContactName: name, 
+        emergencyContactName: name,
         emergencyContactPhone: phone,
       );
       await _repository.saveProfile(updated);
       state = state.copyWith(profile: updated);
+      await _storageService.setEmergencyName(name);
       await _storageService.setEmergencyPhone(phone);
     }
   }
 
   Future<void> refresh() => loadProfile();
+
+  Future<void> _syncProfileToSettings(UserProfile profile) async {
+    await _storageService.setUserDisplayName(profile.fullName);
+    await _storageService.setUserAge(profile.age);
+    await _storageService.setEmergencyName(profile.emergencyContactName ?? '');
+    await _storageService
+        .setEmergencyPhone(profile.emergencyContactPhone ?? '');
+
+    if (_storageService.isWearer) {
+      await _storageService.setMonitorTargetId(profile.uid);
+      await _storageService.setMonitorTargetName(profile.fullName);
+    } else if (_storageService.isCaregiver) {
+      await _storageService.setCaregiverName(profile.fullName);
+    }
+  }
 }
 
 // ─── Providers ───
 
 final userProfileRepositoryProvider = Provider<UserProfileRepository>((ref) {
-  throw UnimplementedError('Tạo repository trong main() và override provider này');
+  throw UnimplementedError(
+      'Tạo repository trong main() và override provider này');
 });
 
-final userProvider =
-    StateNotifierProvider<UserNotifier, UserState>((ref) {
+final userProvider = StateNotifierProvider<UserNotifier, UserState>((ref) {
   final apiService = ref.watch(apiServiceProvider);
   final storageService = ref.watch(storageServiceProvider);
   final mockDataService = ref.watch(mockDataServiceProvider);
   final repository = ref.watch(userProfileRepositoryProvider);
   final isDemo = storageService.isDemoMode;
-  
+
   return UserNotifier(
-    apiService, 
-    storageService, 
+    apiService,
+    storageService,
     mockDataService,
     repository,
     isDemoMode: isDemo,

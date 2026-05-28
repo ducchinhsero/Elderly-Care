@@ -122,10 +122,10 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
 
   void _startApiPolling() {
     refresh();
-    _apiPollingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    _apiPollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _refreshLatestVitals();
     });
-    _reportTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _reportTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _refreshHealthReport(patientId: state.currentVitals?.patientId);
     });
   }
@@ -253,7 +253,12 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
       final json = await _apiService.getLatestVitals();
       _updateVitals(VitalsModel.fromJson(json));
     } catch (e) {
-      state = state.copyWith(error: 'Không thể tải dữ liệu realtime: $e');
+      state = state.copyWith(
+        isLoading: false,
+        error: state.currentVitals == null
+            ? 'Không thể tải dữ liệu realtime: $e'
+            : 'Mất kết nối backend, đang dùng dữ liệu gần nhất.',
+      );
     } finally {
       _isRefreshing = false;
     }
@@ -264,7 +269,9 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
       final json = await _apiService.getHealthReport(patientId: patientId);
       state = state.copyWith(healthReport: HealthReportModel.fromJson(json));
     } catch (e) {
-      state = state.copyWith(error: 'Không thể tải báo cáo sức khỏe: $e');
+      if (state.healthReport == null) {
+        state = state.copyWith(error: 'Không thể tải tóm tắt sức khỏe: $e');
+      }
     }
   }
 
@@ -279,7 +286,9 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Không thể tải dữ liệu: $e',
+        error: state.currentVitals == null
+            ? 'Không thể tải dữ liệu: $e'
+            : 'Mất kết nối backend, đang dùng dữ liệu gần nhất.',
       );
     }
   }

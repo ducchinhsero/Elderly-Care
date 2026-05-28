@@ -15,7 +15,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _ipController = TextEditingController(text: '192.168.1.100');
-  final _portController = TextEditingController(text: '1883');
   final _codeController = TextEditingController();
   final _emergencyPhoneController = TextEditingController();
 
@@ -40,7 +39,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _loadSettings() {
     final storage = ref.read(storageServiceProvider);
     _ipController.text = storage.gatewayIp;
-    _portController.text = storage.mqttPort.toString();
     _codeController.text =
         storage.isCaregiver ? storage.pairingCode : storage.deviceCode;
     _emergencyPhoneController.text = storage.emergencyPhone;
@@ -56,7 +54,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void dispose() {
     _ipController.dispose();
-    _portController.dispose();
     _codeController.dispose();
     _emergencyPhoneController.dispose();
     super.dispose();
@@ -129,7 +126,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
                   ],
-                  // Wearer: Local IP + MQTT
+                  // Wearer: local edge gateway REST API.
                   if (!isCaregiver) ...[
                     TextField(
                       controller: _codeController,
@@ -145,14 +142,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         controller: _ipController,
                         decoration: const InputDecoration(
                             labelText: AppStrings.gatewayIp,
-                            prefixIcon: Icon(Icons.router))),
-                    const SizedBox(height: 8),
-                    TextField(
-                        controller: _portController,
-                        decoration: const InputDecoration(
-                            labelText: AppStrings.mqttPort,
-                            prefixIcon: Icon(Icons.settings_ethernet)),
-                        keyboardType: TextInputType.number),
+                            helperText:
+                                'App sẽ kiểm tra API http://IP:8000/health',
+                            prefixIcon: Icon(Icons.router)),
+                        onChanged: (v) =>
+                            ref.read(storageServiceProvider).setGatewayIp(v)),
                     const SizedBox(height: 12),
                   ],
                   Row(
@@ -208,7 +202,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: [
                 SwitchListTile(
                     title: const Text(AppStrings.notifCritical),
-                    subtitle: const Text('Heads-up + âm thanh + rung',
+                    subtitle: const Text('Cảnh báo nổi bật + rung',
                         style: TextStyle(fontSize: 12)),
                     value: _notifCritical,
                     onChanged: (v) {
@@ -228,7 +222,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const Divider(height: 1),
                 SwitchListTile(
                     title: const Text(AppStrings.notifWatch),
-                    subtitle: const Text('Badge only, im lặng',
+                    subtitle: const Text(
+                        'Chỉ hiển thị trong app, không phát âm',
                         style: TextStyle(fontSize: 12)),
                     value: _notifWatch,
                     onChanged: (v) {
@@ -396,20 +391,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
     final storage = ref.read(storageServiceProvider);
 
-    bool result;
-    if (storage.isCaregiver) {
-      final apiService = ref.read(apiServiceProvider);
-      apiService.configure(
-        baseUrl: storage.apiBaseUrl,
-        accessCode: storage.pairingCode,
-      );
-      result = await apiService.healthCheck();
-    } else {
-      // Test MQTT connection
-      final mqttService = ref.read(mqttServiceProvider);
-      result = await mqttService.testConnection(
-          _ipController.text, int.tryParse(_portController.text) ?? 1883);
+    if (!storage.isCaregiver) {
+      await storage.setGatewayIp(_ipController.text.trim());
     }
+    final apiService = ref.read(apiServiceProvider);
+    apiService.configure(
+      baseUrl: storage.apiBaseUrl,
+      accessCode: storage.isCaregiver ? storage.pairingCode : null,
+      deviceCode: storage.isWearer ? storage.deviceCode : null,
+    );
+    final result = await apiService.healthCheck();
     setState(() {
       _isTesting = false;
       _testResult = result;

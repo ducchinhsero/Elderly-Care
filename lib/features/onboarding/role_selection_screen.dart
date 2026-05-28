@@ -8,6 +8,7 @@ import '../../core/constants/app_strings.dart';
 import '../../core/models/user_profile.dart';
 import '../../core/providers/user_provider.dart';
 import '../../core/providers/vitals_provider.dart';
+import '../../core/services/storage_service.dart';
 
 /// Onboarding starts from a manual code because the edge device processes data locally.
 class RoleSelectionScreen extends ConsumerStatefulWidget {
@@ -45,6 +46,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
     ]) {
       controller.addListener(_refreshCanContinue);
     }
+    _hydrateSavedValues();
   }
 
   @override
@@ -72,6 +74,36 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
 
   void _refreshCanContinue() {
     if (mounted) setState(() {});
+  }
+
+  void _hydrateSavedValues() {
+    final storage = ref.read(storageServiceProvider);
+    if (storage.userRole == 'wearer' || storage.userRole == 'caregiver') {
+      _selectedRole = storage.userRole;
+    }
+
+    _codeController.text =
+        _selectedRole == 'caregiver' ? storage.pairingCode : storage.deviceCode;
+    _fullNameController.text = storage.userDisplayName;
+    if (storage.userAge > 0) {
+      _ageController.text = storage.userAge.toString();
+    }
+    _emergencyNameController.text = storage.emergencyName;
+    _emergencyPhoneController.text = storage.emergencyPhone;
+    _caregiverNameController.text = storage.caregiverName;
+    _targetNameController.text = storage.monitorTargetName;
+  }
+
+  void _selectRole(String role) {
+    final storage = ref.read(storageServiceProvider);
+    final savedCode =
+        role == 'caregiver' ? storage.pairingCode : storage.deviceCode;
+    setState(() {
+      _selectedRole = role;
+      if (savedCode.isNotEmpty) {
+        _codeController.text = savedCode;
+      }
+    });
   }
 
   @override
@@ -160,7 +192,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
           description: AppStrings.roleWearerDesc,
           color: AppColors.safe,
           isSelected: isWearer,
-          onTap: () => setState(() => _selectedRole = 'wearer'),
+          onTap: () => _selectRole('wearer'),
         ),
         const SizedBox(height: 12),
         _RoleCard(
@@ -169,7 +201,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
           description: AppStrings.roleCaregiverDesc,
           color: AppColors.primary,
           isSelected: !isWearer,
-          onTap: () => setState(() => _selectedRole = 'caregiver'),
+          onTap: () => _selectRole('caregiver'),
         ),
         const SizedBox(height: 24),
         TextField(
@@ -303,25 +335,9 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
 
       await storage.setUserRole(_selectedRole);
       if (_selectedRole == 'wearer') {
-        final age = int.tryParse(_ageController.text.trim()) ?? 65;
-        final userId = code;
-        final profile = UserProfile(
-          uid: userId,
-          fullName: _fullNameController.text.trim(),
-          dateOfBirth: DateTime.now().subtract(Duration(days: age * 365)),
-          gender: 'unknown',
-          emergencyContactName: _emergencyNameController.text.trim(),
-          emergencyContactPhone: _emergencyPhoneController.text.trim(),
-        );
-
-        await storage.setDeviceCode(code);
-        await storage.setUserId(userId);
-        await storage.setEmergencyPhone(_emergencyPhoneController.text.trim());
-        await ref.read(userProfileRepositoryProvider).saveProfile(profile);
+        await _saveWearerInfo(storage, code);
       } else {
-        await storage.setPairingCode(code);
-        await storage.setCaregiverName(_caregiverNameController.text.trim());
-        await storage.setMonitorTargetName(_targetNameController.text.trim());
+        await _saveCaregiverInfo(storage, code);
       }
 
       await storage.setOnboardingCompleted(true);
@@ -354,6 +370,54 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _saveWearerInfo(StorageService storage, String code) async {
+    final age = int.tryParse(_ageController.text.trim()) ?? 65;
+    final fullName = _fullNameController.text.trim();
+    final emergencyName = _emergencyNameController.text.trim();
+    final emergencyPhone = _emergencyPhoneController.text.trim();
+    final repository = ref.read(userProfileRepositoryProvider);
+    final existing = await repository.getProfile(code);
+    final profile = (existing ?? UserProfile.empty()).copyWith(
+      uid: code,
+      fullName: fullName,
+      dateOfBirth: DateTime.now().subtract(Duration(days: age * 365)),
+      gender: existing?.gender ?? 'unknown',
+      emergencyContactName: emergencyName,
+      emergencyContactPhone: emergencyPhone,
+    );
+
+    await storage.setDeviceCode(code);
+    await storage.setUserId(code);
+    await storage.setUserDisplayName(fullName);
+    await storage.setUserAge(age);
+    await storage.setEmergencyName(emergencyName);
+    await storage.setEmergencyPhone(emergencyPhone);
+    await storage.setMonitorTargetId(code);
+    await storage.setMonitorTargetName(fullName);
+    await repository.saveProfile(profile);
+  }
+
+  Future<void> _saveCaregiverInfo(StorageService storage, String code) async {
+    final caregiverName = _caregiverNameController.text.trim();
+    final targetName = _targetNameController.text.trim();
+    final caregiverUserId = 'caregiver_$code';
+    final repository = ref.read(userProfileRepositoryProvider);
+    final existing = await repository.getProfile(caregiverUserId);
+    final profile = (existing ?? UserProfile.empty()).copyWith(
+      uid: caregiverUserId,
+      fullName: caregiverName,
+      gender: existing?.gender ?? 'unknown',
+    );
+
+    await storage.setPairingCode(code);
+    await storage.setUserId(caregiverUserId);
+    await storage.setUserDisplayName(caregiverName);
+    await storage.setCaregiverName(caregiverName);
+    await storage.setMonitorTargetId(code);
+    await storage.setMonitorTargetName(targetName);
+    await repository.saveProfile(profile);
   }
 }
 

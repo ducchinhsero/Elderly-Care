@@ -86,7 +86,7 @@ class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen>
                     Switch(
                       value: _ignoreWatch,
                       onChanged: (val) => setState(() => _ignoreWatch = val),
-                      activeColor: AppColors.primary,
+                      activeThumbColor: AppColors.primary,
                     ),
                   ],
                 ),
@@ -172,13 +172,13 @@ class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen>
 
   Map<String, List<AlertModel>> _groupBySeverity(List<AlertModel> alerts) {
     final groups = <String, List<AlertModel>>{
-      'Can ho tro ngay': [],
-      'Nen trao doi y te': [],
-      'Can theo doi': [],
-      'Thong tin': [],
+      'Cần hỗ trợ ngay': [],
+      'Cần kiểm tra': [],
+      'Cần theo dõi': [],
+      'Ổn định': [],
     };
     for (final alert in alerts) {
-      groups[alert.severityGroup]!.add(alert);
+      (groups[alert.severityGroup] ??= <AlertModel>[]).add(alert);
     }
     return groups;
   }

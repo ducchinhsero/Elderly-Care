@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
+import '../../core/models/user_profile.dart';
+import '../../core/providers/user_provider.dart';
 import '../../core/providers/vitals_provider.dart';
 import 'role_selection_screen.dart';
 
@@ -149,9 +151,25 @@ class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
     try {
       final storage = ref.read(storageServiceProvider);
       await storage.setUserRole('caregiver');
-      await storage.setPairingCode(_accessCodeController.text.trim());
-      await storage.setCaregiverName(_caregiverNameController.text.trim());
-      await storage.setMonitorTargetName(_targetNameController.text.trim());
+      final code = _accessCodeController.text.trim().toUpperCase();
+      final caregiverName = _caregiverNameController.text.trim();
+      final targetName = _targetNameController.text.trim();
+      final caregiverUserId = 'caregiver_$code';
+      final repository = ref.read(userProfileRepositoryProvider);
+      final existing = await repository.getProfile(caregiverUserId);
+      final profile = (existing ?? UserProfile.empty()).copyWith(
+        uid: caregiverUserId,
+        fullName: caregiverName,
+        gender: existing?.gender ?? 'unknown',
+      );
+
+      await storage.setPairingCode(code);
+      await storage.setUserId(caregiverUserId);
+      await storage.setUserDisplayName(caregiverName);
+      await storage.setCaregiverName(caregiverName);
+      await storage.setMonitorTargetId(code);
+      await storage.setMonitorTargetName(targetName);
+      await repository.saveProfile(profile);
       await storage.setOnboardingCompleted(true);
 
       ref.read(apiServiceProvider).configure(

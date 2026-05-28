@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 
 /// HTTP client for the ECG pipeline FastAPI backend.
 class ApiService {
+  static const bool _enableApiLogs = bool.fromEnvironment('ENABLE_API_LOGS');
+
   late final Dio _dio;
   String _baseUrl = 'http://127.0.0.1:8000';
 
@@ -15,11 +17,12 @@ class ApiService {
       },
     ));
 
-    _dio.interceptors.add(LogInterceptor(
-      requestBody: false,
-      responseBody: false,
-      logPrint: (obj) => print('[API] $obj'),
-    ));
+    if (_enableApiLogs) {
+      _dio.interceptors.add(LogInterceptor(
+        requestBody: false,
+        responseBody: false,
+      ));
+    }
   }
 
   String get baseUrl => _baseUrl;
@@ -120,7 +123,8 @@ class ApiService {
 
   Future<Map<String, dynamic>> startCalibration() async {
     try {
-      final response = await _dio.post('$_baseUrl/personal-baseline/update-progressive');
+      final response =
+          await _dio.post('$_baseUrl/personal-baseline/update-progressive');
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
       throw ApiException('Cannot start calibration: ${e.message}');

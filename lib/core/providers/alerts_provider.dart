@@ -60,7 +60,7 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
       loadAlerts();
     } else {
       loadAlerts();
-      _apiPollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _apiPollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
         loadAlerts(showLoading: false);
       });
     }
@@ -199,7 +199,9 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Không thể tải cảnh báo: $e',
+        error: state.alerts.isEmpty
+            ? 'Không thể tải cảnh báo: $e'
+            : 'Mất kết nối backend, đang giữ danh sách cảnh báo gần nhất.',
       );
     }
   }

@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/models/user_profile.dart';
 import '../../core/providers/user_provider.dart';
 import 'widgets/comorbidity_selector.dart';
 import 'widgets/medication_selector.dart';
 import 'widgets/threshold_adjustment_widget.dart';
-import 'widgets/calibration_widget.dart';
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   const UserProfileScreen({super.key});
@@ -34,6 +34,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   String _gender = 'male';
   List<String> _comorbidities = [];
   List<String> _medications = [];
+  bool _hasHydratedProfile = false;
 
   @override
   void initState() {
@@ -64,6 +65,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     _gender = profile?.gender ?? 'male';
     _comorbidities = List.from(profile?.comorbidities ?? []);
     _medications = List.from(profile?.medications ?? []);
+    _hasHydratedProfile = profile != null;
   }
 
   @override
@@ -94,7 +96,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     }
   }
 
-  void _saveProfile() {
+  Future<void> _saveProfile() async {
     if (_formKey.currentState!.validate()) {
       final currentProfile = ref.read(userProvider).profile;
       if (currentProfile == null) return;
@@ -116,11 +118,30 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         medications: _medications,
       );
 
-      ref.read(userProvider.notifier).updateProfile(updated);
+      await ref.read(userProvider.notifier).updateProfile(updated);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content:
               Text('Hồ sơ đã được lưu! Ngưỡng cảnh báo đã tự động cập nhật.')));
     }
+  }
+
+  void _hydrateFromProfile(UserProfile profile) {
+    _nameCtrl.text = profile.fullName;
+    _weightCtrl.text = profile.weightKg?.toString() ?? '';
+    _heightCtrl.text = profile.heightCm?.toString() ?? '';
+    _physicianNameCtrl.text = profile.primaryPhysician ?? '';
+    _physicianPhoneCtrl.text = profile.physicianPhone ?? '';
+    _medicalNotesCtrl.text = profile.medicalNotes ?? '';
+    _emergencyNameCtrl.text = profile.emergencyContactName ?? '';
+    _emergencyPhoneCtrl.text = profile.emergencyContactPhone ?? '';
+    _hrBaselineCtrl.text = profile.restingHrBaseline?.toString() ?? '';
+    _rmssdBaselineCtrl.text = profile.rmssdBaseline?.toString() ?? '';
+    _dob = profile.dateOfBirth;
+    _gender = profile.gender;
+    _comorbidities = List.from(profile.comorbidities);
+    _medications = List.from(profile.medications);
+    _hasHydratedProfile = true;
   }
 
   @override
@@ -128,8 +149,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     final userState = ref.watch(userProvider);
     final profile = userState.profile;
 
-    if (userState.isLoading)
+    if (userState.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (profile != null && !_hasHydratedProfile) {
+      _hydrateFromProfile(profile);
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Hồ sơ sức khỏe')),
@@ -323,18 +349,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Calibration (nếu có Profile thực tế)
-              if (profile != null) ...[
-                CalibrationWidget(
-                  isCalibrated: profile.isCalibrated,
-                  lastCalibratedAt: profile.lastCalibratedAt,
-                  needsRecalibration: profile.needsRecalibration,
-                  isCalibrating: userState.isCalibrating,
-                  secondsRemaining: userState.calibrationSecondsRemaining,
-                  onCalibrate: () => _showCalibrationDialog(context, ref),
-                ),
-                const SizedBox(height: 16),
-              ],
+              const _AdvancedFeatureNotice(),
+              const SizedBox(height: 16),
 
               // Section 6: Liên hệ khẩn cấp
               Card(
@@ -392,29 +408,33 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       ),
     );
   }
+}
 
-  void _showCalibrationDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Thiết lập mức bình thường của bạn'),
-        content: const Text(
-            'App sẽ học mức nhịp tim thường thấy của riêng bạn. Sau đó, cảnh báo sẽ sát với cơ thể bạn hơn và ít báo nhầm hơn.\n\n'
-            'Trong thời gian này, hãy:\n'
-            '✓ Ngồi hoặc nằm nghỉ ngơi\n'
-            '✓ Không vận động\n'
-            '✓ Giữ Polar H10 đeo vừa vặn\n'
-            '✗ Không uống cafe hoặc trà đặc trước 1 giờ'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Để sau')),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ref.read(userProvider.notifier).startCalibration();
-            },
-            child: const Text('Bắt đầu'),
+class _AdvancedFeatureNotice extends StatelessWidget {
+  const _AdvancedFeatureNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ExpansionTile(
+        leading: const Icon(Icons.science_outlined, color: AppColors.primary),
+        title: const Text(
+          'Tính năng nâng cao',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: const Text(
+          'Đã tạm ẩn để giữ khung Windows chạy ổn định',
+          style: TextStyle(fontSize: 12),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          Text(
+            'Thiết lập mức bình thường tự động nhiều bước sẽ được bật lại khi cần kiểm thử với backend thật. Hiện tại app vẫn cho nhập mức thường thấy thủ công ở phía trên.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.35,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),

@@ -15,7 +15,6 @@ import 'widgets/activity_badge_widget.dart';
 import 'widgets/alert_banner_widget.dart';
 import 'widgets/connection_status_widget.dart';
 import 'widgets/mini_hr_chart_widget.dart';
-import '../reports/clinical_report_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -74,21 +73,6 @@ class DashboardScreen extends ConsumerWidget {
             onPressed: () => context.push('/settings'),
             icon: const Icon(Icons.settings_outlined),
           ),
-          PopupMenuButton<int>(
-            icon: const Icon(Icons.picture_as_pdf_outlined),
-            tooltip: 'Tạo tóm tắt sức khỏe',
-            onSelected: (days) {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => ClinicalReportScreen(days: days)));
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 1, child: Text('Hôm nay (24h qua)')),
-              const PopupMenuItem(value: 7, child: Text('7 ngày qua')),
-              const PopupMenuItem(value: 30, child: Text('30 ngày qua')),
-            ],
-          ),
         ],
       ),
       body: RefreshIndicator(
@@ -146,6 +130,12 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ),
 
+              if (vitalsState.error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _OfflineBanner(message: vitalsState.error!),
+                ),
+
               if (vitalsState.healthReport != null &&
                   vitalsState.healthReport!.personalBaseline.status != 'ready')
                 Padding(
@@ -197,8 +187,6 @@ class DashboardScreen extends ConsumerWidget {
 
               if (vitals != null) ...[
                 _FriendlyStatusSection(vitals: vitals),
-                const SizedBox(height: 16),
-                _ModelOutputSection(vitals: vitals),
                 const SizedBox(height: 16),
               ],
 
@@ -331,6 +319,41 @@ class DashboardScreen extends ConsumerWidget {
     return '${dt.hour.toString().padLeft(2, '0')}:'
         '${dt.minute.toString().padLeft(2, '0')}:'
         '${dt.second.toString().padLeft(2, '0')}';
+  }
+}
+
+class _OfflineBanner extends StatelessWidget {
+  final String message;
+
+  const _OfflineBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.watchLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.watch.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.wifi_off, color: AppColors.watchDark, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.watchDark,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
