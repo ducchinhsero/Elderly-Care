@@ -20,6 +20,7 @@ class RemoteSetupScreen extends ConsumerStatefulWidget {
 
 class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
   final _accessCodeController = TextEditingController();
+  final _apiKeyController = TextEditingController();
   final _caregiverNameController = TextEditingController();
   final _targetNameController = TextEditingController();
   bool _isSaving = false;
@@ -28,10 +29,12 @@ class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
   void initState() {
     super.initState();
     _accessCodeController.addListener(_refreshCanContinue);
+    _apiKeyController.addListener(_refreshCanContinue);
     _caregiverNameController.addListener(_refreshCanContinue);
     _targetNameController.addListener(_refreshCanContinue);
     final storage = ref.read(storageServiceProvider);
     _accessCodeController.text = storage.pairingCode;
+    _apiKeyController.text = storage.apiKey;
     _caregiverNameController.text = storage.caregiverName;
     _targetNameController.text = storage.monitorTargetName;
   }
@@ -39,9 +42,11 @@ class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
   @override
   void dispose() {
     _accessCodeController.removeListener(_refreshCanContinue);
+    _apiKeyController.removeListener(_refreshCanContinue);
     _caregiverNameController.removeListener(_refreshCanContinue);
     _targetNameController.removeListener(_refreshCanContinue);
     _accessCodeController.dispose();
+    _apiKeyController.dispose();
     _caregiverNameController.dispose();
     _targetNameController.dispose();
     super.dispose();
@@ -108,6 +113,16 @@ class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
             ),
             const SizedBox(height: 16),
             TextField(
+              controller: _apiKeyController,
+              decoration: const InputDecoration(
+                labelText: 'API key backend',
+                helperText: 'Để trống nếu backend chưa bật xác thực API.',
+                prefixIcon: Icon(Icons.key_outlined),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
               controller: _caregiverNameController,
               decoration: const InputDecoration(
                 labelText: AppStrings.caregiverName,
@@ -164,6 +179,7 @@ class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
       );
 
       await storage.setPairingCode(code);
+      await storage.setApiKey(_apiKeyController.text.trim());
       await storage.setUserId(caregiverUserId);
       await storage.setUserDisplayName(caregiverName);
       await storage.setCaregiverName(caregiverName);
@@ -174,11 +190,13 @@ class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
 
       ref.read(apiServiceProvider).configure(
             baseUrl: storage.apiBaseUrl,
+            apiKey: storage.apiKey,
             accessCode: storage.pairingCode,
           );
       final wsService = ref.read(webSocketServiceProvider);
       wsService.configure(
         serverUrl: storage.apiBaseUrl,
+        apiKey: storage.apiKey,
         accessCode: storage.pairingCode,
       );
       wsService.connect();

@@ -5,8 +5,13 @@ import '../../../core/models/alert_model.dart';
 
 class AlertItemWidget extends StatelessWidget {
   final AlertModel alert;
+  final VoidCallback? onAcknowledge;
 
-  const AlertItemWidget({super.key, required this.alert});
+  const AlertItemWidget({
+    super.key,
+    required this.alert,
+    this.onAcknowledge,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +93,37 @@ class AlertItemWidget extends StatelessWidget {
                 ),
               ),
             ),
+            if ((alert.isCritical || alert.isAlert) &&
+                !alert.isAcknowledged &&
+                onAcknowledge != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: onAcknowledge,
+                  icon: const Icon(Icons.check_circle_outline, size: 18),
+                  label: const Text('ÄÃ£ kiá»ƒm tra ngÆ°á»i dÃ¹ng'),
+                ),
+              ),
+            ],
+            if (alert.isAcknowledged) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.verified_outlined,
+                      size: 13, color: AppColors.safe),
+                  const SizedBox(width: 4),
+                  Text(
+                    'ÄÃ£ xÃ¡c nháº­n kiá»ƒm tra',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.safe,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 6),
             Row(
               children: [

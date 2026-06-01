@@ -17,6 +17,10 @@ class VitalsModel {
   final String? beatType;
   final String? beatName;
   final String activity;
+  final String stressLabel;
+  final double stressConfidence;
+  final double stressProbability;
+  final String stressReason;
   final String emotion;
   final double emotionConf;
   final String rhythmLabel;
@@ -50,6 +54,10 @@ class VitalsModel {
     this.beatType,
     this.beatName,
     required this.activity,
+    required this.stressLabel,
+    required this.stressConfidence,
+    required this.stressProbability,
+    required this.stressReason,
     required this.emotion,
     required this.emotionConf,
     required this.rhythmLabel,
@@ -75,6 +83,7 @@ class VitalsModel {
     final rhythmAlert =
         latest['rhythm_alert'] as Map<String, dynamic>? ?? const {};
     final anomaly = latest['anomaly'] as Map<String, dynamic>? ?? const {};
+    final stress = latest['stress'] as Map<String, dynamic>? ?? const {};
     final emotion = latest['emotion'] as Map<String, dynamic>? ?? const {};
     final ectopy = latest['ectopy'] as Map<String, dynamic>? ?? const {};
     final quality =
@@ -111,6 +120,25 @@ class VitalsModel {
       fall,
       rhythmAlert,
     );
+    final stressLabel = _str(
+      stress['label'] ??
+          emotion['label'] ??
+          latest['stress'] ??
+          latest['emotion'],
+      fallback: 'unknown',
+    );
+    final stressConfidence = _num(
+      stress['confidence'] ??
+          emotion['confidence'] ??
+          latest['stress_confidence'] ??
+          latest['emotion_confidence'] ??
+          latest['emotion_conf'],
+    );
+    final stressProbability = _num(
+      (stress['probabilities'] as Map<String, dynamic>?)?['stress'] ??
+          (emotion['probabilities'] as Map<String, dynamic>?)?['stress'] ??
+          (stressLabel == 'stress' ? stressConfidence : 0.0),
+    );
 
     return VitalsModel(
       timestamp: _date(latest['timestamp']),
@@ -128,11 +156,12 @@ class VitalsModel {
       beatName: _conditionName(rhythmLabel, ectopyLabel, afibProbability),
       activity: _str(sensor['activity_state'] ?? latest['activity'],
           fallback: 'REST'),
-      emotion: _mapEmotion(
-          _str(emotion['label'] ?? latest['emotion'], fallback: 'unknown')),
-      emotionConf: _num(emotion['confidence'] ??
-          latest['emotion_confidence'] ??
-          latest['emotion_conf']),
+      stressLabel: stressLabel,
+      stressConfidence: stressConfidence,
+      stressProbability: stressProbability,
+      stressReason: _str(stress['reason'], fallback: ''),
+      emotion: _mapStressToLegacyEmotion(stressLabel),
+      emotionConf: stressConfidence,
       rhythmLabel: rhythmLabel,
       rhythmConfidence: _num(rhythm['confidence'] ?? rhythm['probability']),
       afibProbability: afibProbability,
@@ -170,6 +199,12 @@ class VitalsModel {
       'beat_type': beatType,
       'beat_name': beatName,
       'activity': activity,
+      'stress': {
+        'label': stressLabel,
+        'confidence': stressConfidence,
+        'reason': stressReason,
+        'probabilities': {'stress': stressProbability},
+      },
       'emotion': emotion,
       'emotion_conf': emotionConf,
       'rhythm_label': rhythmLabel,
@@ -233,6 +268,10 @@ class VitalsModel {
     String? beatType,
     String? beatName,
     String? activity,
+    String? stressLabel,
+    double? stressConfidence,
+    double? stressProbability,
+    String? stressReason,
     String? emotion,
     double? emotionConf,
     String? rhythmLabel,
@@ -266,6 +305,10 @@ class VitalsModel {
       beatType: beatType ?? this.beatType,
       beatName: beatName ?? this.beatName,
       activity: activity ?? this.activity,
+      stressLabel: stressLabel ?? this.stressLabel,
+      stressConfidence: stressConfidence ?? this.stressConfidence,
+      stressProbability: stressProbability ?? this.stressProbability,
+      stressReason: stressReason ?? this.stressReason,
       emotion: emotion ?? this.emotion,
       emotionConf: emotionConf ?? this.emotionConf,
       rhythmLabel: rhythmLabel ?? this.rhythmLabel,
@@ -400,16 +443,14 @@ double _rmssdFromLatest(
   return 0.0;
 }
 
-String _mapEmotion(String value) {
+String _mapStressToLegacyEmotion(String value) {
   switch (value.toLowerCase()) {
-    case 'neutral':
+    case 'non_stress':
       return 'calm';
-    case 'relaxed':
-      return 'positive';
     case 'stress':
       return 'stressed';
     default:
-      return value;
+      return 'unknown';
   }
 }
 

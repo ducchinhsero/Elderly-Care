@@ -52,6 +52,7 @@ class VitalsState {
 class VitalsNotifier extends StateNotifier<VitalsState> {
   final ApiService _apiService;
   final WebSocketService _wsService;
+  final MqttService _mqttService;
   final MockDataService _mockDataService;
   final StorageService _storageService;
   final NotificationService _notificationService;
@@ -59,6 +60,8 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
   final bool _isDemoMode;
 
   StreamSubscription? _wsSubscription;
+  StreamSubscription? _mqttVitalsSubscription;
+  StreamSubscription? _mqttAlertSubscription;
   StreamSubscription? _mockSubscription;
   Timer? _timeoutTimer;
   Timer? _apiPollingTimer;
@@ -69,6 +72,7 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
   VitalsNotifier(
     this._apiService,
     this._wsService,
+    this._mqttService,
     this._mockDataService, {
     required StorageService storageService,
     required NotificationService notificationService,
@@ -85,6 +89,8 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     } else {
       if (_isRemoteMode) {
         _listenToWebSocket();
+      } else {
+        _listenToMqtt();
       }
       _startApiPolling();
     }
@@ -120,13 +126,39 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     _wsService.connect();
   }
 
+  void _listenToMqtt() {
+    _mqttVitalsSubscription = _mqttService.vitalsStream.listen(
+      (json) {
+        try {
+          _updateVitals(VitalsModel.fromJson(json));
+        } catch (e) {
+          state = state.copyWith(error: 'Lá»—i parse MQTT: $e');
+        }
+      },
+      onError: (e) {
+        state = state.copyWith(error: 'Lá»—i MQTT: $e');
+      },
+    );
+    _mqttAlertSubscription = _mqttService.alertStream.listen(
+      (json) {
+        try {
+          final vitals = VitalsModel.fromJson(json);
+          unawaited(_notifyImmediateAlerts(vitals));
+        } catch (_) {
+          // Alert payloads are allowed to be partial; REST polling remains the source of truth.
+        }
+      },
+    );
+    unawaited(_mqttService.connect());
+  }
+
   void _startApiPolling() {
     refresh();
     _apiPollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _refreshLatestVitals();
     });
     _reportTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      _refreshHealthReport(patientId: state.currentVitals?.patientId);
+      _refreshHealthReport(patientId: _effectivePatientId);
     });
   }
 
@@ -281,7 +313,8 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
       final json = await _apiService.getLatestVitals();
       final vitals = VitalsModel.fromJson(json);
       _updateVitals(vitals);
-      await _refreshHealthReport(patientId: vitals.patientId);
+      await _refreshHealthReport(
+          patientId: _effectivePatientId ?? vitals.patientId);
       state = state.copyWith(isLoading: false);
     } catch (e) {
       state = state.copyWith(
@@ -296,11 +329,27 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
   @override
   void dispose() {
     _wsSubscription?.cancel();
+    _mqttVitalsSubscription?.cancel();
+    _mqttAlertSubscription?.cancel();
     _mockSubscription?.cancel();
     _timeoutTimer?.cancel();
     _apiPollingTimer?.cancel();
     _reportTimer?.cancel();
     super.dispose();
+  }
+
+  String? get _effectivePatientId {
+    if (_storageService.isCaregiver &&
+        _storageService.monitorTargetId.isNotEmpty) {
+      return _storageService.monitorTargetId;
+    }
+    if (state.currentVitals?.patientId.isNotEmpty == true) {
+      return state.currentVitals!.patientId;
+    }
+    if (_storageService.isWearer && _storageService.deviceCode.isNotEmpty) {
+      return _storageService.deviceCode;
+    }
+    return null;
   }
 }
 
@@ -309,7 +358,14 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 });
 
 final mqttServiceProvider = Provider<MqttService>((ref) {
-  final service = MqttService();
+  final storage = ref.watch(storageServiceProvider);
+  final service = MqttService()
+    ..configure(
+      host: storage.gatewayIp,
+      port: storage.mqttPort,
+      clientId:
+          'elder_health_flutter_${storage.userRole.isEmpty ? 'app' : storage.userRole}',
+    );
   ref.onDispose(() => service.dispose());
   return service;
 });
@@ -319,6 +375,7 @@ final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService()
     ..configure(
       baseUrl: storage.apiBaseUrl,
+      apiKey: storage.apiKey,
       accessCode: storage.isCaregiver ? storage.pairingCode : null,
       deviceCode: storage.isWearer ? storage.deviceCode : null,
     );
@@ -329,6 +386,7 @@ final webSocketServiceProvider = Provider<WebSocketService>((ref) {
   final service = WebSocketService()
     ..configure(
       serverUrl: storage.apiBaseUrl,
+      apiKey: storage.apiKey,
       accessCode: storage.isCaregiver ? storage.pairingCode : null,
     );
   ref.onDispose(() => service.dispose());
@@ -372,6 +430,7 @@ final vitalsProvider =
     StateNotifierProvider<VitalsNotifier, VitalsState>((ref) {
   final apiService = ref.watch(apiServiceProvider);
   final wsService = ref.watch(webSocketServiceProvider);
+  final mqttService = ref.watch(mqttServiceProvider);
   final mockDataService = ref.watch(mockDataServiceProvider);
   final storage = ref.watch(storageServiceProvider);
   final notificationService = ref.watch(notificationServiceProvider);
@@ -379,6 +438,7 @@ final vitalsProvider =
   return VitalsNotifier(
     apiService,
     wsService,
+    mqttService,
     mockDataService,
     storageService: storage,
     notificationService: notificationService,

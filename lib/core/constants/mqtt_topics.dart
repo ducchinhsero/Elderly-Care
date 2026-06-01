@@ -1,16 +1,25 @@
-/// Hằng số MQTT topics — mapping 1:1 với Jetson Nano publisher
+/// MQTT topics matching the Edge AI backend publisher.
 class MqttTopics {
   MqttTopics._();
 
-  /// Kết quả inference vitals (mỗi 30 giây)
-  static const String vitals = 'ecg/vitals';
+  static const String prefix = 'elderly_care';
 
-  /// Alert khi có mức ≥ ALERT
-  static const String alert = 'ecg/alert';
+  /// Realtime vitals from any patient, e.g. elderly_care/polar_h10/vitals/live.
+  static const String vitals = '$prefix/+/vitals/live';
 
-  /// Trạng thái gateway (online/offline)
-  static const String status = 'ecg/status';
+  /// Retained alert from any patient, e.g. elderly_care/polar_h10/alert.
+  static const String alert = '$prefix/+/alert';
 
-  /// Tất cả topics cần subscribe
+  /// Edge service online/offline status.
+  static const String status = '$prefix/service/status';
+
   static const List<String> allTopics = [vitals, alert, status];
+
+  static bool isVitals(String topic) =>
+      topic.startsWith('$prefix/') && topic.endsWith('/vitals/live');
+
+  static bool isAlert(String topic) =>
+      topic.startsWith('$prefix/') && topic.endsWith('/alert');
+
+  static bool isStatus(String topic) => topic == status;
 }

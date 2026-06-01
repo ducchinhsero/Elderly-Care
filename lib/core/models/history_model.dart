@@ -36,8 +36,7 @@ class HistoryModel {
   /// Lọc theo khoảng thời gian
   HistoryModel filterByDateRange(DateTime start, DateTime end) {
     final filtered = points
-        .where((p) =>
-            p.timestamp.isAfter(start) && p.timestamp.isBefore(end))
+        .where((p) => p.timestamp.isAfter(start) && p.timestamp.isBefore(end))
         .toList();
     return HistoryModel(
       points: filtered,
@@ -58,6 +57,8 @@ class HistoryPoint {
   final double anomalyScore;
   final String alertLevel;
   final String activity;
+  final String stressLabel;
+  final double stressConf;
   final String emotion;
   final double emotionConf;
 
@@ -69,11 +70,14 @@ class HistoryPoint {
     required this.anomalyScore,
     required this.alertLevel,
     required this.activity,
+    required this.stressLabel,
+    required this.stressConf,
     required this.emotion,
     required this.emotionConf,
   });
 
   factory HistoryPoint.fromJson(Map<String, dynamic> json) {
+    final stress = json['stress'] as Map<String, dynamic>?;
     final emotion = json['emotion'] as Map<String, dynamic>?;
     final anomaly = json['anomaly'] as Map<String, dynamic>?;
     final risk = json['risk'] as Map<String, dynamic>?;
@@ -87,12 +91,30 @@ class HistoryPoint {
       lfHfRatio: (json['lf_hf_ratio'] as num?)?.toDouble() ?? 0.0,
       anomalyScore: (json['anomaly_score'] as num?)?.toDouble() ??
           ((anomaly?['value'] == 1) ? 1.0 : 0.0),
-      alertLevel: _mapAlertLevel(json['alert_level'] as String? ?? risk?['level'] as String? ?? 'SAFE'),
+      alertLevel: _mapAlertLevel(json['alert_level'] as String? ??
+          risk?['level'] as String? ??
+          'SAFE'),
       activity: sensor?['activity_state'] as String? ??
           json['activity'] as String? ??
           'rest',
-      emotion: _mapEmotion(emotion?['label'] as String? ?? json['emotion'] as String? ?? 'calm'),
-      emotionConf: (emotion?['confidence'] as num?)?.toDouble() ??
+      stressLabel: _mapStress(stress?['label'] as String? ??
+          emotion?['label'] as String? ??
+          json['stress'] as String? ??
+          json['emotion'] as String? ??
+          'unknown'),
+      stressConf: (stress?['confidence'] as num?)?.toDouble() ??
+          (emotion?['confidence'] as num?)?.toDouble() ??
+          (json['stress_conf'] as num?)?.toDouble() ??
+          (json['emotion_conf'] as num?)?.toDouble() ??
+          0.0,
+      emotion: _mapStressToLegacyEmotion(stress?['label'] as String? ??
+          emotion?['label'] as String? ??
+          json['stress'] as String? ??
+          json['emotion'] as String? ??
+          'unknown'),
+      emotionConf: (stress?['confidence'] as num?)?.toDouble() ??
+          (emotion?['confidence'] as num?)?.toDouble() ??
+          (json['stress_conf'] as num?)?.toDouble() ??
           (json['emotion_conf'] as num?)?.toDouble() ??
           0.0,
     );
@@ -107,6 +129,7 @@ class HistoryPoint {
       'anomaly_score': anomalyScore,
       'alert_level': alertLevel,
       'activity': activity,
+      'stress': {'label': stressLabel, 'confidence': stressConf},
       'emotion': emotion,
       'emotion_conf': emotionConf,
     };
@@ -134,9 +157,25 @@ String _mapAlertLevel(String raw) {
   }
 }
 
-String _mapEmotion(String raw) {
+String _mapStress(String raw) {
+  switch (raw.toLowerCase()) {
+    case 'stress':
+      return 'stress';
+    case 'non_stress':
+    case 'neutral':
+    case 'relaxed':
+    case 'calm':
+    case 'positive':
+      return 'non_stress';
+    default:
+      return 'unknown';
+  }
+}
+
+String _mapStressToLegacyEmotion(String raw) {
   switch (raw.toLowerCase()) {
     case 'neutral':
+    case 'non_stress':
       return 'calm';
     case 'relaxed':
       return 'positive';
@@ -158,6 +197,7 @@ class HistoryStats {
   final double normalPercent; // % thời gian trong ngưỡng
   final int alertCount;
   final Map<String, double> activityDistribution; // activity -> % time
+  final Map<String, double> stressDistribution; // stress -> % time
   final Map<String, double> emotionDistribution; // emotion -> % time
 
   const HistoryStats({
@@ -170,6 +210,7 @@ class HistoryStats {
     required this.normalPercent,
     required this.alertCount,
     required this.activityDistribution,
+    required this.stressDistribution,
     required this.emotionDistribution,
   });
 
@@ -186,6 +227,7 @@ class HistoryStats {
         normalPercent: 0,
         alertCount: 0,
         activityDistribution: {},
+        stressDistribution: {},
         emotionDistribution: {},
       );
     }
@@ -196,6 +238,7 @@ class HistoryStats {
     int safeCount = 0;
     int alertCount = 0;
     final activityCount = <String, int>{};
+    final stressCount = <String, int>{};
     final emotionCount = <String, int>{};
 
     for (final p in points) {
@@ -208,6 +251,7 @@ class HistoryStats {
       if (p.alertLevel.toUpperCase() == 'SAFE') safeCount++;
       if (p.hasAlert) alertCount++;
       activityCount[p.activity] = (activityCount[p.activity] ?? 0) + 1;
+      stressCount[p.stressLabel] = (stressCount[p.stressLabel] ?? 0) + 1;
       emotionCount[p.emotion] = (emotionCount[p.emotion] ?? 0) + 1;
     }
 
@@ -224,6 +268,8 @@ class HistoryStats {
       alertCount: alertCount,
       activityDistribution:
           activityCount.map((k, v) => MapEntry(k, (v / total) * 100)),
+      stressDistribution:
+          stressCount.map((k, v) => MapEntry(k, (v / total) * 100)),
       emotionDistribution:
           emotionCount.map((k, v) => MapEntry(k, (v / total) * 100)),
     );

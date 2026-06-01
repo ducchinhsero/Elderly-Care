@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/mock_data_service.dart';
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
+import '../services/websocket_service.dart';
 import 'vitals_provider.dart';
 
 class AlertsState {
@@ -37,17 +38,21 @@ class AlertsState {
 
 class AlertsNotifier extends StateNotifier<AlertsState> {
   final ApiService _apiService;
+  final WebSocketService _webSocketService;
   final StorageService _storageService;
   final MockDataService _mockDataService;
   final NotificationService _notificationService;
   final bool _isDemoMode;
   StreamSubscription? _mockSubscription;
+  StreamSubscription? _wsAlertSubscription;
   Timer? _apiPollingTimer;
+  Timer? _urgentPollingTimer;
   final Map<String, DateTime> _lastNotifiedAt = {};
   bool _hasLoadedOnce = false;
 
   AlertsNotifier(
     this._apiService,
+    this._webSocketService,
     this._storageService,
     this._mockDataService, {
     required NotificationService notificationService,
@@ -60,10 +65,54 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
       loadAlerts();
     } else {
       loadAlerts();
+      _listenToRealtimeAlerts();
+      _urgentPollingTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+        loadUrgentAlerts(showLoading: false);
+      });
       _apiPollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
         loadAlerts(showLoading: false);
       });
     }
+  }
+
+  void _listenToRealtimeAlerts() {
+    if (!_storageService.isCaregiver) return;
+    _wsAlertSubscription = _webSocketService.alertsStream.listen(
+      (json) {
+        try {
+          final alerts = _alertsFromRealtimeMessage(json);
+          if (alerts.isNotEmpty) {
+            _mergeAlerts(alerts);
+          }
+        } catch (e) {
+          state = state.copyWith(error: 'Lá»—i parse cáº£nh bÃ¡o realtime: $e');
+        }
+      },
+      onError: (e) {
+        state = state.copyWith(error: 'Lá»—i WebSocket cáº£nh bÃ¡o: $e');
+      },
+    );
+    unawaited(_webSocketService.connectAlerts(
+      patientId: _effectivePatientId,
+      caregiverId: _effectiveCaregiverId,
+    ));
+    unawaited(loadUrgentAlerts(showLoading: false));
+  }
+
+  List<AlertModel> _alertsFromRealtimeMessage(Map<String, dynamic> json) {
+    final type = json['type']?.toString();
+    if (type == 'alert_backlog') {
+      final items = json['alerts'] as List<dynamic>? ?? const [];
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(AlertModel.fromJson)
+          .toList();
+    }
+    final alert = json['alert'];
+    if (alert is Map<String, dynamic>) {
+      return [AlertModel.fromJson(alert)];
+    }
+    return const [];
   }
 
   void _listenToMockAlerts() {
@@ -189,11 +238,22 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
         final data = _mockDataService.generateAlertHistory(count: 15);
         alerts = data.map((json) => AlertModel.fromJson(json)).toList();
       } else {
-        final data = await _apiService.getAlerts(limit: limit);
+        final urgent = await _apiService.getRealtimeAlerts(
+          limit: 50,
+          patientId: _effectivePatientId,
+        );
+        final data = await _apiService.getAlerts(
+          limit: limit,
+          patientId: _effectivePatientId,
+        );
         alerts = data
             .whereType<Map<String, dynamic>>()
             .map(AlertModel.fromJson)
             .toList();
+        alerts = [
+          ...urgent.whereType<Map<String, dynamic>>().map(AlertModel.fromJson),
+          ...alerts,
+        ];
       }
       _mergeAlerts(alerts);
     } catch (e) {
@@ -203,6 +263,60 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
             ? 'Không thể tải cảnh báo: $e'
             : 'Mất kết nối backend, đang giữ danh sách cảnh báo gần nhất.',
       );
+    }
+  }
+
+  Future<void> loadUrgentAlerts({
+    int limit = 50,
+    bool showLoading = false,
+  }) async {
+    if (_isDemoMode) return;
+    if (showLoading) {
+      state = state.copyWith(isLoading: true);
+    }
+    try {
+      final data = await _apiService.getRealtimeAlerts(
+        limit: limit,
+        patientId: _effectivePatientId,
+      );
+      final alerts = data
+          .whereType<Map<String, dynamic>>()
+          .map(AlertModel.fromJson)
+          .toList();
+      _mergeAlerts(alerts);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: state.alerts.isEmpty
+            ? 'KhÃ´ng thá»ƒ táº£i cáº£nh bÃ¡o kháº©n: $e'
+            : 'Máº¥t káº¿t ná»‘i cáº£nh bÃ¡o realtime, Ä‘ang giá»¯ dá»¯ liá»‡u gáº§n nháº¥t.',
+      );
+    }
+  }
+
+  Future<void> acknowledgeAlert(String alertId) async {
+    final caregiverId = _effectiveCaregiverId;
+    try {
+      final response = await _apiService.acknowledgeAlert(
+        eventId: alertId,
+        caregiverId: caregiverId,
+        note: 'checked_from_app',
+      );
+      final ackStatus =
+          response['ack_status'] as Map<String, dynamic>? ?? const {};
+      await _storageService.markAlertAsRead(alertId);
+      final updatedAlerts = state.alerts.map((a) {
+        if (a.id == alertId) {
+          return a.copyWith(isRead: true, ackStatus: ackStatus);
+        }
+        return a;
+      }).toList();
+      state = state.copyWith(
+        alerts: updatedAlerts,
+        unreadCount: updatedAlerts.where((a) => !a.isRead).length,
+      );
+    } catch (e) {
+      state = state.copyWith(error: 'KhÃ´ng thá»ƒ xÃ¡c nháº­n cáº£nh bÃ¡o: $e');
     }
   }
 
@@ -250,20 +364,46 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
   @override
   void dispose() {
     _mockSubscription?.cancel();
+    _wsAlertSubscription?.cancel();
     _apiPollingTimer?.cancel();
+    _urgentPollingTimer?.cancel();
     super.dispose();
+  }
+
+  String? get _effectivePatientId {
+    if (_storageService.isCaregiver &&
+        _storageService.monitorTargetId.isNotEmpty) {
+      return _storageService.monitorTargetId;
+    }
+    if (_storageService.isWearer && _storageService.deviceCode.isNotEmpty) {
+      return _storageService.deviceCode;
+    }
+    return null;
+  }
+
+  String get _effectiveCaregiverId {
+    if (_storageService.userId.isNotEmpty &&
+        _storageService.userId != 'default') {
+      return _storageService.userId;
+    }
+    if (_storageService.caregiverName.isNotEmpty) {
+      return _storageService.caregiverName;
+    }
+    return 'caregiver_app';
   }
 }
 
 final alertsProvider =
     StateNotifierProvider<AlertsNotifier, AlertsState>((ref) {
   final apiService = ref.watch(apiServiceProvider);
+  final webSocketService = ref.watch(webSocketServiceProvider);
   final storageService = ref.watch(storageServiceProvider);
   final mockDataService = ref.watch(mockDataServiceProvider);
   final notificationService = ref.watch(notificationServiceProvider);
 
   return AlertsNotifier(
     apiService,
+    webSocketService,
     storageService,
     mockDataService,
     notificationService: notificationService,

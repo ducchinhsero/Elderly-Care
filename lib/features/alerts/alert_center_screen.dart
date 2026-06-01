@@ -163,7 +163,11 @@ class _AlertCenterScreenState extends ConsumerState<AlertCenterScreen>
             ),
             onDismissed: (_) =>
                 ref.read(alertsProvider.notifier).markAsRead(alert.id),
-            child: AlertItemWidget(alert: alert),
+            child: AlertItemWidget(
+              alert: alert,
+              onAcknowledge: () =>
+                  ref.read(alertsProvider.notifier).acknowledgeAlert(alert.id),
+            ),
           );
         },
       ),

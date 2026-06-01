@@ -80,10 +80,12 @@ class MockDataService {
     // Thêm nhiễu nhỏ
     final hr = _baseHr + (_random.nextDouble() - 0.5) * 4;
     final rmssd = _currentActivity == 'rest'
-        ? 25 + _random.nextDouble() * 20  // 25-45 khi nghỉ
+        ? 25 + _random.nextDouble() * 20 // 25-45 khi nghỉ
         : 15 + _random.nextDouble() * 15; // 15-30 khi vận động
-    final lfHf = _currentEmotion == 'stressed'
-        ? 2.5 + _random.nextDouble() * 2  // Cao khi stress
+    final stressLabel = _currentEmotion == 'stressed' ? 'stress' : 'non_stress';
+    final stressConfidence = 0.70 + _random.nextDouble() * 0.25;
+    final lfHf = stressLabel == 'stress'
+        ? 2.5 + _random.nextDouble() * 2 // Cao khi stress
         : 0.8 + _random.nextDouble() * 1.2; // Bình thường
 
     // Xác định alert level
@@ -104,8 +106,18 @@ class MockDataService {
       'beat_confidence': 0.95 + _random.nextDouble() * 0.05,
       'activity': _currentActivity,
       'activity_confidence': 0.85 + _random.nextDouble() * 0.15,
+      'stress': {
+        'label': stressLabel,
+        'confidence': stressConfidence,
+        'probabilities': {
+          'non_stress':
+              stressLabel == 'stress' ? 1 - stressConfidence : stressConfidence,
+          'stress':
+              stressLabel == 'stress' ? stressConfidence : 1 - stressConfidence,
+        },
+      },
       'emotion': _currentEmotion,
-      'emotion_confidence': 0.70 + _random.nextDouble() * 0.25,
+      'emotion_confidence': stressConfidence,
       'anomaly_score': _random.nextDouble() * 0.3,
       'alert_level': alertLevel,
       'clinical_alerts': alertLevel != 'SAFE' ? ['HR_ABNORMAL'] : [],
@@ -154,12 +166,18 @@ class MockDataService {
 
   String _alertMessage(String type) {
     switch (type) {
-      case 'TACHYCARDIA': return 'Nhịp tim tăng cao bất thường';
-      case 'BRADYCARDIA': return 'Nhịp tim giảm thấp bất thường';
-      case 'VERY_LOW_HRV': return 'Biến thiên nhịp tim rất thấp';
-      case 'IRREGULAR_RHYTHM': return 'Phát hiện nhịp tim không đều';
-      case 'FALL_DETECTED': return '⚠️ Phát hiện ngã! Kiểm tra ngay!';
-      default: return 'Cảnh báo sức khỏe';
+      case 'TACHYCARDIA':
+        return 'Nhịp tim tăng cao bất thường';
+      case 'BRADYCARDIA':
+        return 'Nhịp tim giảm thấp bất thường';
+      case 'VERY_LOW_HRV':
+        return 'Biến thiên nhịp tim rất thấp';
+      case 'IRREGULAR_RHYTHM':
+        return 'Phát hiện nhịp tim không đều';
+      case 'FALL_DETECTED':
+        return '⚠️ Phát hiện ngã! Kiểm tra ngay!';
+      default:
+        return 'Cảnh báo sức khỏe';
     }
   }
 
@@ -207,7 +225,8 @@ class MockDataService {
 
       final rmssd = 20 + _random.nextDouble() * 25;
       final activities = ['rest', 'slow_walk', 'walk', 'active'];
-      final emotions = ['calm', 'positive', 'stressed'];
+      final stresses = ['non_stress', 'non_stress', 'stress'];
+      final stress = stresses[_random.nextInt(stresses.length)];
 
       points.add({
         'timestamp': timestamp.toIso8601String(),
@@ -216,7 +235,11 @@ class MockDataService {
         'sdnn_ms': double.parse((rmssd * 1.3).toStringAsFixed(1)),
         'lf_hf_ratio': 0.5 + _random.nextDouble() * 2.5,
         'activity': activities[_random.nextInt(activities.length)],
-        'emotion': emotions[_random.nextInt(emotions.length)],
+        'stress': {
+          'label': stress,
+          'confidence': 0.70 + _random.nextDouble() * 0.25,
+        },
+        'emotion': stress == 'stress' ? 'stressed' : 'calm',
         'alert_level': baseHr > 100 ? 'WATCH' : 'SAFE',
         'has_alert': baseHr > 110,
       });
@@ -229,7 +252,13 @@ class MockDataService {
   List<Map<String, dynamic>> generateAlertHistory({int count = 15}) {
     final alerts = <Map<String, dynamic>>[];
     final now = DateTime.now();
-    final types = ['TACHYCARDIA', 'BRADYCARDIA', 'VERY_LOW_HRV', 'IRREGULAR_RHYTHM', 'FALL_DETECTED'];
+    final types = [
+      'TACHYCARDIA',
+      'BRADYCARDIA',
+      'VERY_LOW_HRV',
+      'IRREGULAR_RHYTHM',
+      'FALL_DETECTED'
+    ];
     final levels = ['WATCH', 'ALERT', 'CRITICAL'];
 
     for (int i = 0; i < count; i++) {
@@ -238,9 +267,12 @@ class MockDataService {
 
       alerts.add({
         'id': 'mock_hist_$i',
-        'timestamp': now.subtract(Duration(minutes: minutesAgo)).toIso8601String(),
+        'timestamp':
+            now.subtract(Duration(minutes: minutesAgo)).toIso8601String(),
         'type': type,
-        'level': type == 'FALL_DETECTED' ? 'CRITICAL' : levels[_random.nextInt(levels.length)],
+        'level': type == 'FALL_DETECTED'
+            ? 'CRITICAL'
+            : levels[_random.nextInt(levels.length)],
         'hr_bpm': 60 + _random.nextInt(80).toDouble(),
         'rmssd_ms': 10 + _random.nextDouble() * 30,
         'activity': _randomActivity(),
@@ -249,7 +281,8 @@ class MockDataService {
     }
 
     // Sort by time desc
-    alerts.sort((a, b) => DateTime.parse(b['timestamp']).compareTo(DateTime.parse(a['timestamp'])));
+    alerts.sort((a, b) => DateTime.parse(b['timestamp'])
+        .compareTo(DateTime.parse(a['timestamp'])));
     return alerts;
   }
 
@@ -263,7 +296,8 @@ class MockDataService {
       'medications': 'Amlodipine 5mg, Metformin 500mg',
       'calibration': {
         'is_calibrated': true,
-        'calibrated_at': DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
+        'calibrated_at':
+            DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
         'needs_recalibration': false,
       },
       'emergency_contact': {

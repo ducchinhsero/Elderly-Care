@@ -58,7 +58,7 @@ class AppStrings {
   static const String rmssd = 'RMSSD';
   static const String lfHfRatio = 'LF/HF';
   static const String activity = 'Hoạt động';
-  static const String emotion = 'Cảm xúc';
+  static const String emotion = 'Căng thẳng';
   static const String lastUpdated = 'Cập nhật lần cuối';
   static const String latency = 'Độ trễ';
   static const String noData = 'Chưa có dữ liệu';
@@ -188,7 +188,7 @@ class AppStrings {
   static const String days30 = '30 ngày';
   static const String tabHeartRate = 'Nhịp tim';
   static const String tabHRV = 'HRV';
-  static const String tabEmotion = 'Cảm xúc';
+  static const String tabEmotion = 'Stress';
   static const String tabActivity = 'Hoạt động';
   static const String avgHR = 'TB';
   static const String minHR = 'Thấp nhất';

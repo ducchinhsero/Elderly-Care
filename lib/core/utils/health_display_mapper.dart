@@ -15,8 +15,9 @@ class HealthDisplayMapper {
     'POST /guided-baseline/complete-day',
   ];
 
-  static const List<String> wearerHeaders = ['X-Device-Code'];
-  static const List<String> caregiverHeaders = ['X-Access-Code'];
+  static const List<String> authHeaders = ['X-API-Key'];
+  static const List<String> wearerHeaders = authHeaders;
+  static const List<String> caregiverHeaders = authHeaders;
 
   static const List<AlertMappingInfo> alertMappings = [
     AlertMappingInfo(

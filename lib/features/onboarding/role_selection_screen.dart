@@ -21,6 +21,7 @@ class RoleSelectionScreen extends ConsumerStatefulWidget {
 
 class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
   final _codeController = TextEditingController();
+  final _apiKeyController = TextEditingController();
   final _fullNameController = TextEditingController();
   final _ageController = TextEditingController(text: '65');
   final _emergencyNameController = TextEditingController();
@@ -37,6 +38,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
     super.initState();
     for (final controller in [
       _codeController,
+      _apiKeyController,
       _fullNameController,
       _ageController,
       _emergencyNameController,
@@ -53,6 +55,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
   void dispose() {
     for (final controller in [
       _codeController,
+      _apiKeyController,
       _fullNameController,
       _ageController,
       _emergencyNameController,
@@ -63,6 +66,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
       controller.removeListener(_refreshCanContinue);
     }
     _codeController.dispose();
+    _apiKeyController.dispose();
     _fullNameController.dispose();
     _ageController.dispose();
     _emergencyNameController.dispose();
@@ -84,6 +88,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
 
     _codeController.text =
         _selectedRole == 'caregiver' ? storage.pairingCode : storage.deviceCode;
+    _apiKeyController.text = storage.apiKey;
     _fullNameController.text = storage.userDisplayName;
     if (storage.userAge > 0) {
       _ageController.text = storage.userAge.toString();
@@ -222,6 +227,24 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
           ],
           textCapitalization: TextCapitalization.characters,
         ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _apiKeyController,
+          decoration: const InputDecoration(
+            labelText: 'API key backend',
+            helperText: 'Để trống nếu backend chưa bật xác thực API.',
+            prefixIcon: Icon(Icons.key_outlined),
+          ),
+          obscureText: true,
+        ),
+        if (isWearer) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => context.push('/wifi-setup'),
+            icon: const Icon(Icons.wifi_tethering),
+            label: const Text('Thiet lap Wi-Fi cho Raspberry'),
+          ),
+        ],
       ],
     );
   }
@@ -334,6 +357,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
       final code = _codeController.text.trim().toUpperCase();
 
       await storage.setUserRole(_selectedRole);
+      await storage.setApiKey(_apiKeyController.text.trim());
       if (_selectedRole == 'wearer') {
         await _saveWearerInfo(storage, code);
       } else {
@@ -344,6 +368,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
 
       ref.read(apiServiceProvider).configure(
             baseUrl: storage.apiBaseUrl,
+            apiKey: storage.apiKey,
             accessCode: storage.isCaregiver ? storage.pairingCode : null,
             deviceCode: storage.isWearer ? storage.deviceCode : null,
           );
@@ -351,6 +376,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
         final wsService = ref.read(webSocketServiceProvider);
         wsService.configure(
           serverUrl: storage.apiBaseUrl,
+          apiKey: storage.apiKey,
           accessCode: storage.pairingCode,
         );
         wsService.connect();

@@ -43,6 +43,10 @@ class StorageService {
   int get mqttPort => getSetting<int>('mqtt_port', defaultValue: 1883)!;
   Future<void> setMqttPort(int port) => saveSetting('mqtt_port', port);
 
+  /// API key used by the Edge AI backend when API_AUTH_ENABLED=1.
+  String get apiKey => getSetting<String>('api_key', defaultValue: '')!;
+  Future<void> setApiKey(String key) => saveSetting('api_key', key.trim());
+
   /// API Base URL — wearer reads the local edge gateway, caregiver reads cloud.
   String get apiBaseUrl {
     if (isCaregiver) {

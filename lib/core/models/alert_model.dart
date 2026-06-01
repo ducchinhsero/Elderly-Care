@@ -11,6 +11,7 @@ class AlertModel {
   final double? rmssdMs;
   final String? activity;
   final Map<String, dynamic> metadata;
+  final Map<String, dynamic> ackStatus;
   final bool isRead;
 
   const AlertModel({
@@ -23,10 +24,15 @@ class AlertModel {
     this.rmssdMs,
     this.activity,
     this.metadata = const {},
+    this.ackStatus = const {},
     this.isRead = false,
   });
 
   factory AlertModel.fromJson(Map<String, dynamic> json) {
+    final ackStatus = json['ack_status'] as Map<String, dynamic>? ?? const {};
+    final acknowledged = ackStatus['acknowledged'] == true ||
+        ackStatus['status'] == 'acknowledged' ||
+        ackStatus['status'] == 'resolved';
     final eventType = json['event_type'] as String?;
     final severity = json['severity'] as String?;
     return AlertModel(
@@ -48,7 +54,8 @@ class AlertModel {
       activity:
           json['activity_state'] as String? ?? json['activity'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>? ?? const {},
-      isRead: json['is_read'] as bool? ?? false,
+      ackStatus: ackStatus,
+      isRead: json['is_read'] as bool? ?? acknowledged,
     );
   }
 
@@ -63,6 +70,7 @@ class AlertModel {
       'rmssd_ms': rmssdMs,
       'activity': activity,
       'metadata': metadata,
+      'ack_status': ackStatus,
       'is_read': isRead,
     };
   }
@@ -91,6 +99,13 @@ class AlertModel {
   bool get isCritical => level.toUpperCase() == 'CRITICAL';
   bool get isAlert => level.toUpperCase() == 'ALERT';
   bool get isWatch => level.toUpperCase() == 'WATCH';
+  bool get isAcknowledged =>
+      ackStatus['acknowledged'] == true ||
+      ackStatus['status'] == 'acknowledged' ||
+      ackStatus['status'] == 'resolved' ||
+      isRead;
+  bool get isResolved =>
+      ackStatus['resolved'] == true || ackStatus['status'] == 'resolved';
 
   int get severityLevel {
     switch (level.toUpperCase()) {
@@ -131,6 +146,7 @@ class AlertModel {
     double? rmssdMs,
     String? activity,
     Map<String, dynamic>? metadata,
+    Map<String, dynamic>? ackStatus,
     bool? isRead,
   }) {
     return AlertModel(
@@ -143,6 +159,7 @@ class AlertModel {
       rmssdMs: rmssdMs ?? this.rmssdMs,
       activity: activity ?? this.activity,
       metadata: metadata ?? this.metadata,
+      ackStatus: ackStatus ?? this.ackStatus,
       isRead: isRead ?? this.isRead,
     );
   }

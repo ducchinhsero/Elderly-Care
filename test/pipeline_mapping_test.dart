@@ -12,7 +12,12 @@ void main() {
         'timestamp': '2026-05-22T10:30:00+07:00',
         'window_count': 6,
         'heart_rate_bpm': 82.5,
-        'emotion': {'label': 'stress', 'confidence': 0.81},
+        'stress': {
+          'label': 'stress',
+          'confidence': 0.81,
+          'reason': null,
+          'probabilities': {'non_stress': 0.19, 'stress': 0.81},
+        },
         'rhythm': {
           'label': 'possible_afib',
           'confidence': 0.72,
@@ -47,6 +52,9 @@ void main() {
     expect(vitals.patientId, 'polar_h10');
     expect(vitals.hrBpm, 82.5);
     expect(vitals.alertLevel, 'WATCH');
+    expect(vitals.stressLabel, 'stress');
+    expect(vitals.stressConfidence, 0.81);
+    expect(vitals.stressProbability, 0.81);
     expect(vitals.emotion, 'stressed');
     expect(vitals.rhythmLabel, 'possible_afib');
     expect(vitals.afibProbability, 0.42);
@@ -67,6 +75,27 @@ void main() {
 
     expect(vitals.alertLevel, 'ALERT');
     expect(vitals.clinicalAlerts.first.type, 'fall_candidate');
+  });
+
+  test(
+      'VitalsModel treats stress warmup as unknown instead of zero confidence failure',
+      () {
+    final vitals = VitalsModel.fromJson({
+      'patient_id': 'polar_h10',
+      'heart_rate_bpm': 76.0,
+      'stress': {
+        'label': 'unknown',
+        'confidence': 0.0,
+        'reason': 'warming_up_stress_window',
+        'probabilities': {'non_stress': 0.0, 'stress': 0.0},
+      },
+      'alert_level': 'normal',
+    });
+
+    expect(vitals.stressLabel, 'unknown');
+    expect(vitals.stressReason, 'warming_up_stress_window');
+    expect(vitals.stressConfidence, 0.0);
+    expect(vitals.emotion, 'unknown');
   });
 
   test('HealthReportModel parses three time layers', () {
@@ -171,6 +200,27 @@ void main() {
     expect(alert.level, 'WATCH');
     expect(alert.hrBpm, 112.0);
     expect(alert.activity, 'REST');
+  });
+
+  test('AlertModel parses realtime ack status payload', () {
+    final alert = AlertModel.fromJson({
+      'event_id': 'event-critical',
+      'timestamp': '2026-05-22T10:30:00+07:00',
+      'event_type': 'fall_candidate',
+      'severity': 'critical',
+      'message': 'Strong fall detected.',
+      'ack_status': {
+        'acknowledged': true,
+        'resolved': false,
+        'status': 'acknowledged',
+        'caregiver_id': 'caregiver_1',
+      },
+    });
+
+    expect(alert.level, 'CRITICAL');
+    expect(alert.isAcknowledged, isTrue);
+    expect(alert.isRead, isTrue);
+    expect(alert.ackStatus['caregiver_id'], 'caregiver_1');
   });
 
   test('GuidedBaselineStatus parses guided session payload', () {

@@ -29,18 +29,18 @@ class ApiService {
 
   void configure({
     required String baseUrl,
+    String? apiKey,
     String? accessCode,
     String? deviceCode,
   }) {
     _baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), '');
     _dio.options.baseUrl = _baseUrl;
+    _dio.options.headers.remove('X-API-Key');
     _dio.options.headers.remove('X-Access-Code');
     _dio.options.headers.remove('X-Device-Code');
-    if (accessCode != null && accessCode.trim().isNotEmpty) {
-      _dio.options.headers['X-Access-Code'] = accessCode.trim();
-    }
-    if (deviceCode != null && deviceCode.trim().isNotEmpty) {
-      _dio.options.headers['X-Device-Code'] = deviceCode.trim();
+    final effectiveKey = apiKey?.trim() ?? '';
+    if (effectiveKey.isNotEmpty) {
+      _dio.options.headers['X-API-Key'] = effectiveKey;
     }
   }
 
@@ -56,11 +56,16 @@ class ApiService {
   }
 
   /// GET /history - stored prediction history.
-  Future<Map<String, dynamic>> getHistory({int hours = 24}) async {
+  Future<Map<String, dynamic>> getHistory({
+    int hours = 24,
+    String? patientId,
+  }) async {
     try {
       final response = await _dio.get(
         '$_baseUrl/history',
         queryParameters: {
+          if (patientId != null && patientId.isNotEmpty)
+            'patient_id': patientId,
           'days': hours / 24.0,
           'limit': 5000,
         },
@@ -72,11 +77,16 @@ class ApiService {
   }
 
   /// GET /events - event timeline used as app alerts.
-  Future<List<dynamic>> getAlerts({int limit = 50}) async {
+  Future<List<dynamic>> getAlerts({
+    int limit = 50,
+    String? patientId,
+  }) async {
     try {
       final response = await _dio.get(
         '$_baseUrl/events',
         queryParameters: {
+          if (patientId != null && patientId.isNotEmpty)
+            'patient_id': patientId,
           'days': 7,
           'limit': limit,
         },
@@ -87,6 +97,71 @@ class ApiService {
       return (response.data['events'] as List<dynamic>?) ?? [];
     } on DioException catch (e) {
       throw ApiException('Cannot load alerts: ${e.message}');
+    }
+  }
+
+  /// GET /alerts/realtime - high/critical caregiver alerts with ack status.
+  Future<List<dynamic>> getRealtimeAlerts({
+    int limit = 50,
+    String? patientId,
+    bool includeAcknowledged = false,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '$_baseUrl/alerts/realtime',
+        queryParameters: {
+          if (patientId != null && patientId.isNotEmpty)
+            'patient_id': patientId,
+          'limit': limit,
+          'include_acknowledged': includeAcknowledged,
+        },
+      );
+      if (response.data is List) {
+        return response.data as List<dynamic>;
+      }
+      return (response.data['alerts'] as List<dynamic>?) ?? [];
+    } on DioException catch (e) {
+      throw ApiException('Cannot load urgent alerts: ${e.message}');
+    }
+  }
+
+  Future<Map<String, dynamic>> acknowledgeAlert({
+    required String eventId,
+    required String caregiverId,
+    String note = '',
+  }) async {
+    try {
+      final response = await _dio.post(
+        '$_baseUrl/alerts/$eventId/ack',
+        data: {
+          'caregiver_id': caregiverId,
+          'note': note,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException('Cannot acknowledge alert: ${e.message}');
+    }
+  }
+
+  Future<Map<String, dynamic>> resolveAlert({
+    required String eventId,
+    required String caregiverId,
+    String resolution = 'checked_ok',
+    String note = '',
+  }) async {
+    try {
+      final response = await _dio.post(
+        '$_baseUrl/alerts/$eventId/resolve',
+        data: {
+          'caregiver_id': caregiverId,
+          'resolution': resolution,
+          'note': note,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException('Cannot resolve alert: ${e.message}');
     }
   }
 

@@ -69,7 +69,7 @@ class MqttService {
 
       final connMessage = MqttConnectMessage()
           .withClientIdentifier(_clientId)
-          .withWillTopic('ecg/client_status')
+          .withWillTopic('${MqttTopics.prefix}/app/client_status')
           .withWillMessage('offline')
           .startClean()
           .withWillQos(MqttQos.atLeastOnce);
@@ -115,16 +115,16 @@ class MqttService {
 
   /// Route message đến đúng stream controller
   void _routeMessage(String topic, Map<String, dynamic> json) {
-    switch (topic) {
-      case MqttTopics.vitals:
-        _vitalsController.add(json);
-        break;
-      case MqttTopics.alert:
-        _alertController.add(json);
-        break;
-      case MqttTopics.status:
-        _statusController.add(json);
-        break;
+    if (MqttTopics.isVitals(topic)) {
+      _vitalsController.add(json);
+      return;
+    }
+    if (MqttTopics.isAlert(topic)) {
+      _alertController.add(json);
+      return;
+    }
+    if (MqttTopics.isStatus(topic)) {
+      _statusController.add(json);
     }
   }
 

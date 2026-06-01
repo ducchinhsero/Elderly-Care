@@ -447,6 +447,15 @@ class _FriendlyStatusSection extends StatelessWidget {
                     vitals.signalQualityLabel,
                   ),
                 ),
+                _MeasuredChip(
+                  icon: Icons.psychology_alt_outlined,
+                  label: 'Stress',
+                  value: _stressText(
+                    vitals.stressLabel,
+                    vitals.stressConfidence,
+                    vitals.stressReason,
+                  ),
+                ),
               ],
             ),
           ],
@@ -454,6 +463,19 @@ class _FriendlyStatusSection extends StatelessWidget {
       ),
     );
   }
+}
+
+String _stressText(String label, double confidence, String reason) {
+  if (label == 'unknown') {
+    if (reason == 'warming_up_stress_window') {
+      return 'Đang thu đủ 5 phút';
+    }
+    return 'Chưa đủ dữ liệu';
+  }
+  final pct = (confidence * 100).round();
+  if (label == 'stress') return 'Căng thẳng $pct%';
+  if (label == 'non_stress') return 'Ổn định $pct%';
+  return label;
 }
 
 class _SimpleInfoRow extends StatelessWidget {

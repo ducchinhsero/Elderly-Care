@@ -13,21 +13,25 @@ enum WsConnectionState {
 /// Service kết nối WebSocket đến FastAPI cloud (cho người giám sát ở xa)
 /// Endpoint: ws://{cloud_server}/ws/vitals
 class WebSocketService {
-  WebSocket? _ws;
+  WebSocket? _vitalsWs;
+  WebSocket? _alertsWs;
   final _vitalsController = StreamController<Map<String, dynamic>>.broadcast();
+  final _alertsController = StreamController<Map<String, dynamic>>.broadcast();
   final _connectionStateController =
       StreamController<WsConnectionState>.broadcast();
 
   WsConnectionState _connectionState = WsConnectionState.disconnected;
   Timer? _reconnectTimer;
+  Timer? _alertReconnectTimer;
   Timer? _pingTimer;
   bool _autoReconnect = true;
 
   String _serverUrl = '';
-  String _accessCode = '';
+  String _apiKey = '';
 
   // ─── Streams ───
   Stream<Map<String, dynamic>> get vitalsStream => _vitalsController.stream;
+  Stream<Map<String, dynamic>> get alertsStream => _alertsController.stream;
   Stream<WsConnectionState> get connectionStateStream =>
       _connectionStateController.stream;
   WsConnectionState get connectionState => _connectionState;
@@ -35,11 +39,12 @@ class WebSocketService {
   /// Cấu hình server URL
   void configure({
     required String serverUrl,
+    String? apiKey,
     String? accessCode,
     bool autoReconnect = true,
   }) {
     _serverUrl = serverUrl;
-    _accessCode = accessCode?.trim() ?? '';
+    _apiKey = apiKey?.trim() ?? '';
     _autoReconnect = autoReconnect;
   }
 
@@ -56,18 +61,17 @@ class WebSocketService {
           .replaceFirst('https://', 'wss://')
           .replaceFirst('http://', 'ws://');
 
-      _ws = await WebSocket.connect(
-        '$wsUrl/ws/vitals',
+      _vitalsWs = await WebSocket.connect(
+        _buildVitalsUrl(wsUrl),
         headers: {
           'Accept': 'application/json',
-          if (_accessCode.isNotEmpty) 'X-Access-Code': _accessCode,
         },
       ).timeout(const Duration(seconds: 10));
 
       _updateConnectionState(WsConnectionState.connected);
 
       // Listen for messages
-      _ws!.listen(
+      _vitalsWs!.listen(
         (data) {
           try {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
@@ -91,8 +95,11 @@ class WebSocketService {
       // Ping mỗi 30 giây để giữ kết nối
       _pingTimer?.cancel();
       _pingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-        if (_ws != null && _ws!.readyState == WebSocket.open) {
-          _ws!.add(jsonEncode({'type': 'ping'}));
+        if (_vitalsWs != null && _vitalsWs!.readyState == WebSocket.open) {
+          _vitalsWs!.add(jsonEncode({'type': 'ping'}));
+        }
+        if (_alertsWs != null && _alertsWs!.readyState == WebSocket.open) {
+          _alertsWs!.add(jsonEncode({'type': 'ping'}));
         }
       });
 
@@ -108,22 +115,90 @@ class WebSocketService {
   /// Ngắt kết nối
   void disconnect() {
     _reconnectTimer?.cancel();
+    _alertReconnectTimer?.cancel();
     _pingTimer?.cancel();
     _autoReconnect = false;
-    _ws?.close();
-    _ws = null;
+    _vitalsWs?.close();
+    _alertsWs?.close();
+    _vitalsWs = null;
+    _alertsWs = null;
     _updateConnectionState(WsConnectionState.disconnected);
   }
 
+  /// Káº¿t ná»‘i kÃªnh cáº£nh bÃ¡o nghiÃªm trá»ng cho caregiver.
+  Future<bool> connectAlerts({
+    String? patientId,
+    String? caregiverId,
+  }) async {
+    if (_serverUrl.isEmpty) return false;
+    if (_alertsWs != null && _alertsWs!.readyState == WebSocket.open) {
+      return true;
+    }
+
+    try {
+      final wsUrl = _serverUrl
+          .replaceFirst('https://', 'wss://')
+          .replaceFirst('http://', 'ws://');
+      _alertsWs = await WebSocket.connect(
+        _buildAlertsUrl(
+          wsUrl,
+          patientId: patientId,
+          caregiverId: caregiverId,
+        ),
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      _alertsWs!.listen(
+        (data) {
+          try {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            _alertsController.add(json);
+          } catch (e) {
+            print('WS alerts: Error parsing message: $e');
+          }
+        },
+        onDone: () {
+          _alertsWs = null;
+          if (_autoReconnect) {
+            _scheduleReconnectAlerts(
+              patientId: patientId,
+              caregiverId: caregiverId,
+            );
+          }
+        },
+        onError: (e) {
+          print('WS alerts: Error: $e');
+          _alertsWs = null;
+          if (_autoReconnect) {
+            _scheduleReconnectAlerts(
+              patientId: patientId,
+              caregiverId: caregiverId,
+            );
+          }
+        },
+      );
+      return true;
+    } catch (e) {
+      print('WS alerts: Connection error: $e');
+      if (_autoReconnect) {
+        _scheduleReconnectAlerts(
+          patientId: patientId,
+          caregiverId: caregiverId,
+        );
+      }
+      return false;
+    }
+  }
+
   /// Kiểm tra kết nối
-  Future<bool> testConnection(String serverUrl) async {
+  Future<bool> testConnection(String serverUrl, {String? apiKey}) async {
     try {
       final wsUrl = serverUrl
           .replaceFirst('https://', 'wss://')
           .replaceFirst('http://', 'ws://');
 
       final testWs = await WebSocket.connect(
-        '$wsUrl/ws/vitals',
+        _buildVitalsUrl(wsUrl, apiKey: apiKey),
       ).timeout(const Duration(seconds: 5));
 
       testWs.close();
@@ -131,6 +206,33 @@ class WebSocketService {
     } catch (e) {
       return false;
     }
+  }
+
+  String _buildVitalsUrl(String wsUrl, {String? apiKey}) {
+    final key = apiKey?.trim() ?? _apiKey;
+    final uri = Uri.parse('$wsUrl/ws/vitals');
+    if (key.isEmpty) return uri.toString();
+    return uri.replace(queryParameters: {
+      ...uri.queryParameters,
+      'api_key': key,
+    }).toString();
+  }
+
+  String _buildAlertsUrl(
+    String wsUrl, {
+    String? apiKey,
+    String? patientId,
+    String? caregiverId,
+  }) {
+    final key = apiKey?.trim() ?? _apiKey;
+    final uri = Uri.parse('$wsUrl/ws/alerts');
+    return uri.replace(queryParameters: {
+      ...uri.queryParameters,
+      if (key.isNotEmpty) 'api_key': key,
+      if (patientId != null && patientId.isNotEmpty) 'patient_id': patientId,
+      if (caregiverId != null && caregiverId.isNotEmpty)
+        'caregiver_id': caregiverId,
+    }).toString();
   }
 
   // ─── Private ───
@@ -150,11 +252,23 @@ class WebSocketService {
     });
   }
 
+  void _scheduleReconnectAlerts({String? patientId, String? caregiverId}) {
+    _alertReconnectTimer?.cancel();
+    _alertReconnectTimer = Timer(const Duration(seconds: 5), () {
+      if (_autoReconnect) {
+        connectAlerts(patientId: patientId, caregiverId: caregiverId);
+      }
+    });
+  }
+
   void dispose() {
     _reconnectTimer?.cancel();
+    _alertReconnectTimer?.cancel();
     _pingTimer?.cancel();
-    _ws?.close();
+    _vitalsWs?.close();
+    _alertsWs?.close();
     _vitalsController.close();
+    _alertsController.close();
     _connectionStateController.close();
   }
 }

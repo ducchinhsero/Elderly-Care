@@ -16,6 +16,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _ipController = TextEditingController(text: '192.168.1.100');
   final _codeController = TextEditingController();
+  final _apiKeyController = TextEditingController();
   final _emergencyPhoneController = TextEditingController();
 
   bool _autoReconnect = true;
@@ -41,6 +42,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _ipController.text = storage.gatewayIp;
     _codeController.text =
         storage.isCaregiver ? storage.pairingCode : storage.deviceCode;
+    _apiKeyController.text = storage.apiKey;
     _emergencyPhoneController.text = storage.emergencyPhone;
     _autoReconnect = storage.autoReconnect;
     _notifCritical = storage.notifCritical;
@@ -55,6 +57,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void dispose() {
     _ipController.dispose();
     _codeController.dispose();
+    _apiKeyController.dispose();
     _emergencyPhoneController.dispose();
     super.dispose();
   }
@@ -100,6 +103,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  if (!isCaregiver) ...[
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.wifi_tethering),
+                      title: const Text('Thiet lap Wi-Fi Raspberry'),
+                      subtitle: const Text(
+                        'Dung khi dua Raspberry sang Wi-Fi moi: ket noi ElderlyCare-Setup roi chon Wi-Fi nha.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.push('/wifi-setup'),
+                    ),
+                    const Divider(height: 20),
+                  ],
                   // Caregiver: access code. Cloud endpoint is internal build config.
                   if (isCaregiver) ...[
                     TextField(
@@ -149,6 +166,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ref.read(storageServiceProvider).setGatewayIp(v)),
                     const SizedBox(height: 12),
                   ],
+                  TextField(
+                    controller: _apiKeyController,
+                    decoration: const InputDecoration(
+                      labelText: 'API key backend',
+                      helperText:
+                          'Chỉ cần nhập khi backend bật API_AUTH_ENABLED=1',
+                      prefixIcon: Icon(Icons.key_outlined),
+                    ),
+                    obscureText: true,
+                    onChanged: (v) =>
+                        ref.read(storageServiceProvider).setApiKey(v),
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -299,9 +329,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _buildTechnicalDataSection(dynamic storage) {
-    final headers = storage.isCaregiver
-        ? HealthDisplayMapper.caregiverHeaders
-        : HealthDisplayMapper.wearerHeaders;
+    final headers = HealthDisplayMapper.authHeaders;
     final roleText = storage.isCaregiver
         ? 'Người giám sát dùng cloud'
         : 'Người đeo dùng gateway nội bộ';
@@ -373,6 +401,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final api = ref.read(apiServiceProvider)
       ..configure(
         baseUrl: storage.apiBaseUrl,
+        apiKey: storage.apiKey,
         accessCode: storage.isCaregiver ? storage.pairingCode : null,
         deviceCode: storage.isWearer ? storage.deviceCode : null,
       );
@@ -394,9 +423,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (!storage.isCaregiver) {
       await storage.setGatewayIp(_ipController.text.trim());
     }
+    await storage.setApiKey(_apiKeyController.text.trim());
     final apiService = ref.read(apiServiceProvider);
     apiService.configure(
       baseUrl: storage.apiBaseUrl,
+      apiKey: storage.apiKey,
       accessCode: storage.isCaregiver ? storage.pairingCode : null,
       deviceCode: storage.isWearer ? storage.deviceCode : null,
     );
