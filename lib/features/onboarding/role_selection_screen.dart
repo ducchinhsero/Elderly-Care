@@ -240,9 +240,9 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
         if (isWearer) ...[
           const SizedBox(height: 12),
           OutlinedButton.icon(
-            onPressed: () => context.push('/wifi-setup'),
-            icon: const Icon(Icons.wifi_tethering),
-            label: const Text('Thiet lap Wi-Fi cho Raspberry'),
+            onPressed: () => context.push('/lan-setup'),
+            icon: const Icon(Icons.settings_ethernet),
+            label: const Text('Kết nối Raspberry qua LAN'),
           ),
         ],
       ],
