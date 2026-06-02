@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/onboarding/role_selection_screen.dart';
 import '../features/onboarding/remote_setup_screen.dart';
-import '../features/onboarding/lan_setup_screen.dart';
+import '../features/onboarding/wifi_provisioning_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/alerts/alert_center_screen.dart';
 import '../features/history/history_screen.dart';
@@ -75,8 +75,8 @@ GoRouter createAppRouter({required bool onboardingCompleted}) {
         builder: (context, state) => const RemoteSetupScreen(),
       ),
       GoRoute(
-        path: '/lan-setup',
-        builder: (context, state) => const LanSetupScreen(),
+        path: '/wifi-setup',
+        builder: (context, state) => const WifiProvisioningScreen(),
       ),
 
       // ── Main app (bottom navigation shell) ──

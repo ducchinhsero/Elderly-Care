@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/vitals_provider.dart';
-import '../../core/services/lan_setup_service.dart';
 import '../../core/utils/health_display_mapper.dart';
 import 'widgets/alert_threshold_widget.dart';
 
@@ -107,14 +106,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   if (!isCaregiver) ...[
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.settings_ethernet),
-                      title: const Text('Kết nối Raspberry qua LAN'),
+                      leading: const Icon(Icons.wifi_tethering),
+                      title: const Text('Thiet lap Wi-Fi Raspberry'),
                       subtitle: const Text(
-                        'Cắm Raspberry vào router bằng dây LAN, sau đó nhập IP hoặc quét mạng.',
+                        'Dung khi dua Raspberry sang Wi-Fi moi: ket noi ElderlyCare-Setup roi chon Wi-Fi nha.',
                         style: TextStyle(fontSize: 12),
                       ),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.push('/lan-setup'),
+                      onTap: () => context.push('/wifi-setup'),
                     ),
                     const Divider(height: 20),
                   ],
@@ -164,9 +163,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 'App sẽ kiểm tra API http://IP:8000/health',
                             prefixIcon: Icon(Icons.router)),
                         onChanged: (v) =>
-                            ref.read(storageServiceProvider).setGatewayIp(
-                                  LanSetupService.normalizeGatewayHost(v),
-                                )),
+                            ref.read(storageServiceProvider).setGatewayIp(v)),
                     const SizedBox(height: 12),
                   ],
                   TextField(
@@ -424,9 +421,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final storage = ref.read(storageServiceProvider);
 
     if (!storage.isCaregiver) {
-      await storage.setGatewayIp(
-        LanSetupService.normalizeGatewayHost(_ipController.text),
-      );
+      await storage.setGatewayIp(_ipController.text.trim());
     }
     await storage.setApiKey(_apiKeyController.text.trim());
     final apiService = ref.read(apiServiceProvider);
