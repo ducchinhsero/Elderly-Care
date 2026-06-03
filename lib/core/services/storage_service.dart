@@ -36,8 +36,8 @@ class StorageService {
 
   /// Gateway IP
   String get gatewayIp =>
-      getSetting<String>('gateway_ip', defaultValue: '127.0.0.1')!;
-  Future<void> setGatewayIp(String ip) => saveSetting('gateway_ip', ip);
+      getSetting<String>('gateway_ip', defaultValue: 'elderlycare.local')!;
+  Future<void> setGatewayIp(String ip) => saveSetting('gateway_ip', ip.trim());
 
   /// MQTT Port
   int get mqttPort => getSetting<int>('mqtt_port', defaultValue: 1883)!;
@@ -52,7 +52,29 @@ class StorageService {
     if (isCaregiver) {
       return cloudUrl.isNotEmpty ? cloudUrl : defaultCloudBaseUrl;
     }
-    return 'http://$gatewayIp:8000';
+    return _edgeBaseUrl(gatewayIp);
+  }
+
+  String get mqttHost => _edgeHost(gatewayIp);
+
+  String _edgeBaseUrl(String value) {
+    final host = value.trim().replaceAll(RegExp(r'/+$'), '');
+    if (host.isEmpty) return 'http://elderlycare.local:8000';
+    if (host.startsWith('http://') || host.startsWith('https://')) {
+      return host;
+    }
+    final hasPort = RegExp(r':\d+$').hasMatch(host);
+    return 'http://$host${hasPort ? '' : ':8000'}';
+  }
+
+  String _edgeHost(String value) {
+    final host = value.trim();
+    if (host.isEmpty) return 'elderlycare.local';
+    final uri = Uri.tryParse(host);
+    if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
+      return uri.host;
+    }
+    return host.split(':').first;
   }
 
   /// Auto reconnect

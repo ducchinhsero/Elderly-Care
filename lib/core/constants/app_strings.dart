@@ -245,7 +245,7 @@ class AppStrings {
   // ─── Settings ───
   static const String settings = 'Cài đặt';
   static const String connection = 'Kết nối';
-  static const String gatewayIp = 'IP Gateway';
+  static const String gatewayIp = 'Địa chỉ Raspberry';
   static const String mqttPort = 'MQTT Port';
   static const String testConnection = 'Kiểm tra kết nối';
   static const String autoReconnect = 'Tự động kết nối lại';

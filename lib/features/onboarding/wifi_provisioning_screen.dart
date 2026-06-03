@@ -231,7 +231,7 @@ class _WifiProvisioningScreenState
             icon: Icons.home_outlined,
             title: '3. Quay lai Wi-Fi nha',
             text:
-                'Neu mat mang ElderlyCare-Setup sau khi gui cau hinh, do la tin hieu tot: Raspberry dang chuyen sang Wi-Fi nha. Hay ket noi dien thoai lai Wi-Fi nha, sau do vao Cai dat app va kiem tra backend http://IP:8000/health.',
+                'Neu mat mang ElderlyCare-Setup sau khi gui cau hinh, do la tin hieu tot: Raspberry dang chuyen sang Wi-Fi nha. Hay ket noi dien thoai lai Wi-Fi nha, sau do vao Cai dat app va kiem tra backend http://elderlycare.local:8000/health hoac IP cua Raspberry.',
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(

@@ -49,9 +49,45 @@ class ApiService {
     try {
       final response = await _dio.get('$_baseUrl/latest-result');
       final data = response.data as Map<String, dynamic>;
-      return (data['latest_result'] as Map<String, dynamic>?) ?? data;
+      return data;
     } on DioException catch (e) {
       throw ApiException('Cannot load latest vitals: ${e.message}');
+    }
+  }
+
+  /// GET /health - backend, model, network provisioning, and Polar status.
+  Future<Map<String, dynamic>> getHealthStatus() async {
+    try {
+      final response = await _dio.get(
+        '$_baseUrl/health',
+        options: Options(
+          sendTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 5),
+        ),
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException('Cannot load backend health: ${e.message}');
+    }
+  }
+
+  /// POST /polar/start - manually start Polar H10 collector when auto-start is unavailable.
+  Future<Map<String, dynamic>> startPolarCollector({
+    String? address,
+    int chunkSeconds = 10,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '$_baseUrl/polar/start',
+        data: {
+          if (address != null && address.trim().isNotEmpty)
+            'address': address.trim(),
+          'chunk_seconds': chunkSeconds,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException('Cannot start Polar collector: ${e.message}');
     }
   }
 

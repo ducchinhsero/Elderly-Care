@@ -25,7 +25,8 @@ class DashboardScreen extends ConsumerWidget {
     final userState = ref.watch(userProvider);
     final storage = ref.watch(storageServiceProvider);
     final isRemote = storage.isCaregiver;
-    final vitals = vitalsState.currentVitals;
+    final vitals = vitalsState.isTimedOut ? null : vitalsState.currentVitals;
+    final liveVitals = vitals;
 
     // Tên hiển thị: tên người đeo (wearer) hoặc tên người được theo dõi (caregiver)
     final displayName = isRemote
@@ -136,6 +137,17 @@ class DashboardScreen extends ConsumerWidget {
                   child: _OfflineBanner(message: vitalsState.error!),
                 ),
 
+              if (!isRemote)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _RuntimeStatusCard(
+                    status: vitalsState.runtimeStatus,
+                    onStartPolar: () =>
+                        ref.read(vitalsProvider.notifier).startPolarCollector(),
+                    onOpenSettings: () => context.push('/settings'),
+                  ),
+                ),
+
               if (vitalsState.healthReport != null &&
                   vitalsState.healthReport!.personalBaseline.status != 'ready')
                 Padding(
@@ -174,14 +186,14 @@ class DashboardScreen extends ConsumerWidget {
 
               // ── Hero: HR Gauge ──
               HRGaugeWidget(
-                hrBpm: vitals?.hrBpm ?? 0,
-                alertLevel: vitals?.alertLevel ?? 'SAFE',
+                hrBpm: liveVitals?.hrBpm ?? 0,
+                alertLevel: liveVitals?.alertLevel ?? 'SAFE',
                 conditionNameVi: vitals?.beatName ?? 'Nhịp tim đang đều',
                 confidence: 1.0 -
-                    (vitals?.anomalyScore ??
+                    (liveVitals?.anomalyScore ??
                         0.0), // Mock confidence from anomaly
-                hrMin: (vitals?.hrBpm ?? 60) - 4,
-                hrMax: (vitals?.hrBpm ?? 60) + 7,
+                hrMin: liveVitals == null ? 0 : liveVitals.hrBpm - 4,
+                hrMax: liveVitals == null ? 0 : liveVitals.hrBpm + 7,
               ),
               const SizedBox(height: 16),
 
@@ -353,6 +365,145 @@ class _OfflineBanner extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RuntimeStatusCard extends StatelessWidget {
+  final DeviceRuntimeStatus status;
+  final VoidCallback onStartPolar;
+  final VoidCallback onOpenSettings;
+
+  const _RuntimeStatusCard({
+    required this.status,
+    required this.onStartPolar,
+    required this.onOpenSettings,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final backendOk = status.backendReachable;
+    final polarOk = status.polarRunning && status.hasRecentPrediction;
+    final polarWaiting = status.polarRunning && !status.hasRecentPrediction;
+    final color = !backendOk
+        ? AppColors.critical
+        : polarOk
+            ? AppColors.safe
+            : AppColors.watchDark;
+    final title = !backendOk
+        ? 'Raspberry chưa kết nối'
+        : polarOk
+            ? 'Raspberry và Polar đang hoạt động'
+            : 'Raspberry đã kết nối, cần kiểm tra Polar';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  polarOk ? Icons.sensors : Icons.sensors_off_outlined,
+                  color: color,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                _LevelChip(
+                  level: !backendOk
+                      ? 'high'
+                      : polarOk
+                          ? 'low'
+                          : 'medium',
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _RuntimeLine(
+              icon: Icons.router_outlined,
+              text: status.networkUserLabel,
+              color: backendOk ? AppColors.safe : AppColors.critical,
+            ),
+            const SizedBox(height: 6),
+            _RuntimeLine(
+              icon: Icons.monitor_heart_outlined,
+              text: status.polarUserLabel,
+              color: polarOk
+                  ? AppColors.safe
+                  : polarWaiting
+                      ? AppColors.watchDark
+                      : AppColors.critical,
+            ),
+            if ((status.polarLastError ?? '').isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                status.polarLastError!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onOpenSettings,
+                  icon: const Icon(Icons.settings_outlined),
+                  label: const Text('Cài đặt kết nối'),
+                ),
+                if (!status.polarRunning)
+                  ElevatedButton.icon(
+                    onPressed: backendOk ? onStartPolar : null,
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('Bật thu Polar'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RuntimeLine extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  const _RuntimeLine({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }

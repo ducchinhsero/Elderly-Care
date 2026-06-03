@@ -30,6 +30,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool? _testResult;
   bool _isCheckingTechnical = false;
   bool? _technicalHealthResult;
+  bool _isStartingPolar = false;
+  bool? _polarStartResult;
 
   @override
   void initState() {
@@ -160,7 +162,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         decoration: const InputDecoration(
                             labelText: AppStrings.gatewayIp,
                             helperText:
-                                'App sẽ kiểm tra API http://IP:8000/health',
+                                'Nhập elderlycare.local, IP, host:port hoặc URL đầy đủ',
                             prefixIcon: Icon(Icons.router)),
                         onChanged: (v) =>
                             ref.read(storageServiceProvider).setGatewayIp(v)),
@@ -205,6 +207,49 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ],
                     ],
                   ),
+                  if (!isCaregiver) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed:
+                                _isStartingPolar ? null : _startPolarCollector,
+                            icon: _isStartingPolar
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.monitor_heart_outlined),
+                            label: Text(_isStartingPolar
+                                ? 'Đang bật Polar...'
+                                : 'Bật thu Polar thủ công'),
+                          ),
+                        ),
+                        if (_polarStartResult != null) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            _polarStartResult!
+                                ? Icons.check_circle
+                                : Icons.error_outline,
+                            color: _polarStartResult!
+                                ? AppColors.safe
+                                : AppColors.critical,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Dùng khi Raspberry đã lên backend nhưng Polar chưa tự bắt đầu thu tín hiệu.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   SwitchListTile(
                       title: const Text(AppStrings.autoReconnect),
@@ -436,6 +481,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _isTesting = false;
       _testResult = result;
     });
+  }
+
+  Future<void> _startPolarCollector() async {
+    setState(() {
+      _isStartingPolar = true;
+      _polarStartResult = null;
+    });
+    final storage = ref.read(storageServiceProvider);
+    if (!storage.isCaregiver) {
+      await storage.setGatewayIp(_ipController.text.trim());
+    }
+    await storage.setApiKey(_apiKeyController.text.trim());
+    try {
+      final ok = await ref.read(vitalsProvider.notifier).startPolarCollector();
+      if (!mounted) return;
+      setState(() {
+        _isStartingPolar = false;
+        _polarStartResult = ok;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isStartingPolar = false;
+        _polarStartResult = false;
+      });
+    }
   }
 
   Future<void> _changeRole(BuildContext context) async {

@@ -12,6 +12,7 @@ import '../services/websocket_service.dart';
 class VitalsState {
   final VitalsModel? currentVitals;
   final HealthReportModel? healthReport;
+  final DeviceRuntimeStatus runtimeStatus;
   final List<VitalsModel> recentHistory;
   final bool isLoading;
   final String? error;
@@ -21,6 +22,7 @@ class VitalsState {
   const VitalsState({
     this.currentVitals,
     this.healthReport,
+    this.runtimeStatus = const DeviceRuntimeStatus(),
     this.recentHistory = const [],
     this.isLoading = false,
     this.error,
@@ -31,6 +33,7 @@ class VitalsState {
   VitalsState copyWith({
     VitalsModel? currentVitals,
     HealthReportModel? healthReport,
+    DeviceRuntimeStatus? runtimeStatus,
     List<VitalsModel>? recentHistory,
     bool? isLoading,
     String? error,
@@ -40,6 +43,7 @@ class VitalsState {
     return VitalsState(
       currentVitals: currentVitals ?? this.currentVitals,
       healthReport: healthReport ?? this.healthReport,
+      runtimeStatus: runtimeStatus ?? this.runtimeStatus,
       recentHistory: recentHistory ?? this.recentHistory,
       isLoading: isLoading ?? this.isLoading,
       error: error,
@@ -49,7 +53,106 @@ class VitalsState {
   }
 }
 
+class DeviceRuntimeStatus {
+  final bool backendReachable;
+  final String networkMode;
+  final String? connectedSsid;
+  final bool internetReachable;
+  final bool polarRunning;
+  final bool polarAutoStart;
+  final String? polarAddress;
+  final String? polarLastPacketAt;
+  final String? polarLastPredictionAt;
+  final String? polarLastError;
+  final int connectAttempts;
+  final int successfulConnections;
+  final int reconnectCount;
+
+  const DeviceRuntimeStatus({
+    this.backendReachable = false,
+    this.networkMode = 'unknown',
+    this.connectedSsid,
+    this.internetReachable = false,
+    this.polarRunning = false,
+    this.polarAutoStart = false,
+    this.polarAddress,
+    this.polarLastPacketAt,
+    this.polarLastPredictionAt,
+    this.polarLastError,
+    this.connectAttempts = 0,
+    this.successfulConnections = 0,
+    this.reconnectCount = 0,
+  });
+
+  factory DeviceRuntimeStatus.fromBackendEnvelope(
+    Map<String, dynamic> json, {
+    bool backendReachable = true,
+  }) {
+    final polar = json['polar'] as Map<String, dynamic>? ?? const {};
+    final network =
+        json['network_provisioning'] as Map<String, dynamic>? ?? const {};
+    return DeviceRuntimeStatus(
+      backendReachable: backendReachable,
+      networkMode: (network['mode'] ?? 'unknown').toString(),
+      connectedSsid: network['connected_ssid']?.toString(),
+      internetReachable: network['internet_reachable'] == true,
+      polarRunning: polar['running'] == true,
+      polarAutoStart: polar['auto_start'] == true,
+      polarAddress: polar['address']?.toString(),
+      polarLastPacketAt: polar['last_packet_at']?.toString(),
+      polarLastPredictionAt: polar['last_prediction_at']?.toString(),
+      polarLastError: polar['last_error']?.toString(),
+      connectAttempts: _statusInt(polar['connect_attempts']),
+      successfulConnections: _statusInt(polar['successful_connections']),
+      reconnectCount: _statusInt(polar['reconnect_count']),
+    );
+  }
+
+  bool get hasRecentPolarPacket {
+    final parsed = DateTime.tryParse(polarLastPacketAt ?? '');
+    if (parsed == null) return false;
+    return DateTime.now().difference(parsed).inSeconds <= 90;
+  }
+
+  bool get hasRecentPrediction {
+    final parsed = DateTime.tryParse(polarLastPredictionAt ?? '');
+    if (parsed == null) return false;
+    return DateTime.now().difference(parsed).inSeconds <= 90;
+  }
+
+  String get polarUserLabel {
+    if (!backendReachable) return 'Backend mất kết nối';
+    if (!polarRunning) return 'Polar chưa chạy';
+    if (hasRecentPrediction) return 'Polar đang thu tín hiệu';
+    if (hasRecentPolarPacket) return 'Polar đã kết nối, đang chờ xử lý';
+    if ((polarLastError ?? '').isNotEmpty) return 'Polar cần kiểm tra';
+    return 'Polar đang kết nối';
+  }
+
+  String get networkUserLabel {
+    if (!backendReachable) return 'Không kết nối được Raspberry';
+    if (networkMode == 'client') {
+      final ssid = connectedSsid;
+      return ssid == null || ssid.isEmpty
+          ? 'Raspberry đã vào Wi-Fi'
+          : 'Raspberry đã vào Wi-Fi $ssid';
+    }
+    if (networkMode == 'ap') return 'Raspberry đang phát Wi-Fi setup';
+    if (networkMode == 'offline') return 'Raspberry chưa có Internet';
+    return 'Chưa rõ trạng thái mạng Raspberry';
+  }
+}
+
+int _statusInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? 0;
+  return 0;
+}
+
 class VitalsNotifier extends StateNotifier<VitalsState> {
+  static const Duration _freshVitalsWindow = Duration(seconds: 90);
+
   final ApiService _apiService;
   final WebSocketService _wsService;
   final MqttService _mqttService;
@@ -66,6 +169,7 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
   Timer? _timeoutTimer;
   Timer? _apiPollingTimer;
   Timer? _reportTimer;
+  Timer? _runtimeStatusTimer;
   bool _isRefreshing = false;
   final Map<String, DateTime> _lastNotifiedAt = {};
 
@@ -157,13 +261,59 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     _apiPollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _refreshLatestVitals();
     });
+    _runtimeStatusTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _refreshRuntimeStatus();
+    });
     _reportTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _refreshHealthReport(patientId: _effectivePatientId);
     });
   }
 
+  void _updateRuntimeStatusFromEnvelope(Map<String, dynamic> json) {
+    if (json.containsKey('polar') || json.containsKey('network_provisioning')) {
+      state = state.copyWith(
+        runtimeStatus: DeviceRuntimeStatus.fromBackendEnvelope(json),
+      );
+    }
+  }
+
+  bool _hasNoLatestResult(Map<String, dynamic> json) {
+    return json.containsKey('latest_result') && json['latest_result'] == null;
+  }
+
+  bool _hasStaleLatestResult(Map<String, dynamic> json) {
+    return json['latest_result_fresh'] == false;
+  }
+
+  bool _isFreshVitals(VitalsModel vitals) {
+    final age = DateTime.now().difference(vitals.timestamp);
+    if (age.isNegative) {
+      return age.abs() <= const Duration(minutes: 5);
+    }
+    return age <= _freshVitalsWindow;
+  }
+
+  void _handleNoLatestResult() {
+    state = state.copyWith(
+      isLoading: false,
+      isTimedOut: true,
+      error:
+          'Chưa có dữ liệu ECG mới từ Polar. Kiểm tra dây đeo hoặc bấm Bật thu Polar.',
+    );
+  }
+
+  void _handleStaleLatestResult() {
+    state = state.copyWith(
+      isLoading: false,
+      isTimedOut: true,
+      error:
+          'Dữ liệu ECG đã cũ. Kiểm tra Polar, dây đeo hoặc bấm Bật thu Polar.',
+    );
+  }
+
   void _updateVitals(VitalsModel vitals) {
     final now = DateTime.now();
+    final isFresh = _isFreshVitals(vitals);
     final cutoff = now.subtract(const Duration(minutes: 30));
     final updatedHistory = [...state.recentHistory, vitals]
         .where((v) => v.timestamp.isAfter(cutoff))
@@ -172,13 +322,17 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     state = state.copyWith(
       currentVitals: vitals,
       recentHistory: updatedHistory,
-      lastUpdated: now,
-      isTimedOut: false,
+      lastUpdated: isFresh ? now : state.lastUpdated,
+      isTimedOut: !isFresh,
       isLoading: false,
-      error: null,
+      error: isFresh
+          ? null
+          : 'Dữ liệu ECG đã cũ. Kiểm tra Polar, dây đeo hoặc bấm Bật thu Polar.',
     );
 
-    unawaited(_notifyImmediateAlerts(vitals));
+    if (isFresh) {
+      unawaited(_notifyImmediateAlerts(vitals));
+    }
   }
 
   Future<void> _notifyImmediateAlerts(VitalsModel vitals) async {
@@ -283,10 +437,20 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     _isRefreshing = true;
     try {
       final json = await _apiService.getLatestVitals();
+      _updateRuntimeStatusFromEnvelope(json);
+      if (_hasNoLatestResult(json)) {
+        _handleNoLatestResult();
+        return;
+      }
+      if (_hasStaleLatestResult(json)) {
+        _handleStaleLatestResult();
+        return;
+      }
       _updateVitals(VitalsModel.fromJson(json));
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
+        runtimeStatus: const DeviceRuntimeStatus(backendReachable: false),
         error: state.currentVitals == null
             ? 'Không thể tải dữ liệu realtime: $e'
             : 'Mất kết nối backend, đang dùng dữ liệu gần nhất.',
@@ -307,18 +471,44 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     }
   }
 
+  Future<void> _refreshRuntimeStatus() async {
+    try {
+      final json = await _apiService.getHealthStatus();
+      state = state.copyWith(
+        runtimeStatus: DeviceRuntimeStatus.fromBackendEnvelope(json),
+      );
+    } catch (_) {
+      state = state.copyWith(
+        runtimeStatus: const DeviceRuntimeStatus(backendReachable: false),
+      );
+    }
+  }
+
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true);
     try {
       final json = await _apiService.getLatestVitals();
+      _updateRuntimeStatusFromEnvelope(json);
+      if (_hasNoLatestResult(json)) {
+        _handleNoLatestResult();
+        unawaited(_refreshRuntimeStatus());
+        return;
+      }
+      if (_hasStaleLatestResult(json)) {
+        _handleStaleLatestResult();
+        unawaited(_refreshRuntimeStatus());
+        return;
+      }
       final vitals = VitalsModel.fromJson(json);
       _updateVitals(vitals);
+      unawaited(_refreshRuntimeStatus());
       await _refreshHealthReport(
           patientId: _effectivePatientId ?? vitals.patientId);
       state = state.copyWith(isLoading: false);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
+        runtimeStatus: const DeviceRuntimeStatus(backendReachable: false),
         error: state.currentVitals == null
             ? 'Không thể tải dữ liệu: $e'
             : 'Mất kết nối backend, đang dùng dữ liệu gần nhất.',
@@ -335,7 +525,21 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     _timeoutTimer?.cancel();
     _apiPollingTimer?.cancel();
     _reportTimer?.cancel();
+    _runtimeStatusTimer?.cancel();
     super.dispose();
+  }
+
+  Future<bool> startPolarCollector() async {
+    try {
+      final json = await _apiService.startPolarCollector();
+      _updateRuntimeStatusFromEnvelope(json);
+      await _refreshRuntimeStatus();
+      await _refreshLatestVitals();
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: 'Không thể bật thu Polar: $e');
+      return false;
+    }
   }
 
   String? get _effectivePatientId {
@@ -361,7 +565,7 @@ final mqttServiceProvider = Provider<MqttService>((ref) {
   final storage = ref.watch(storageServiceProvider);
   final service = MqttService()
     ..configure(
-      host: storage.gatewayIp,
+      host: storage.mqttHost,
       port: storage.mqttPort,
       clientId:
           'elder_health_flutter_${storage.userRole.isEmpty ? 'app' : storage.userRole}',

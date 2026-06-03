@@ -24,10 +24,14 @@ class HRGaugeWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _levelColor();
+    final hasLiveHr = hrBpm > 0;
+    final color = hasLiveHr ? _levelColor() : AppColors.watchDark;
     final hr = hrBpm <= 0 ? null : hrBpm.round();
     final normalized = hrBpm <= 0 ? 0.0 : ((hrBpm - 40) / 120).clamp(0.0, 1.0);
     final hrAvg = ((hrMin + hrMax) / 2).round();
+    final statusLabel = hasLiveHr ? _levelText() : 'Chờ dữ liệu';
+    final conditionText =
+        hasLiveHr ? conditionNameVi : 'Chưa có dữ liệu ECG mới';
 
     return Card(
       child: InkWell(
@@ -58,7 +62,7 @@ class HRGaugeWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  _StatusChip(label: _levelText(), color: color),
+                  _StatusChip(label: statusLabel, color: color),
                 ],
               ),
               const SizedBox(height: 18),
@@ -87,12 +91,12 @@ class HRGaugeWidget extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  if (confidence < 0.8) const _AnalyzingChip(),
+                  if (hasLiveHr && confidence < 0.8) const _AnalyzingChip(),
                 ],
               ),
               const SizedBox(height: 12),
               Text(
-                conditionNameVi,
+                conditionText,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -293,7 +297,7 @@ class _MiniMetric extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            value.toString(),
+            value > 0 ? value.toString() : '--',
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,

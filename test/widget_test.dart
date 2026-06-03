@@ -51,7 +51,7 @@ void main() {
     });
 
     test('giá trị mặc định hợp lý', () {
-      expect(storage.gatewayIp, '127.0.0.1');
+      expect(storage.gatewayIp, 'elderlycare.local');
       expect(storage.isDemoMode, isFalse);
       expect(storage.mqttPort, 1883);
       expect(storage.autoReconnect, isTrue);
@@ -78,6 +78,15 @@ void main() {
       // Mặc định: người đeo dùng gateway IP nội bộ
       await storage.setGatewayIp('10.0.0.5');
       expect(storage.apiBaseUrl, 'http://10.0.0.5:8000');
+      expect(storage.mqttHost, '10.0.0.5');
+
+      await storage.setGatewayIp('elderlycare.local:8000');
+      expect(storage.apiBaseUrl, 'http://elderlycare.local:8000');
+      expect(storage.mqttHost, 'elderlycare.local');
+
+      await storage.setGatewayIp('http://elderlycare.local:8000');
+      expect(storage.apiBaseUrl, 'http://elderlycare.local:8000');
+      expect(storage.mqttHost, 'elderlycare.local');
 
       // Người giám sát dùng cloud endpoint nội bộ của app, không nhập ở onboarding
       await storage.setUserRole('caregiver');
