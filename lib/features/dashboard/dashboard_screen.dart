@@ -189,9 +189,7 @@ class DashboardScreen extends ConsumerWidget {
                 hrBpm: liveVitals?.hrBpm ?? 0,
                 alertLevel: liveVitals?.alertLevel ?? 'SAFE',
                 conditionNameVi: vitals?.beatName ?? 'Nhịp tim đang đều',
-                confidence: 1.0 -
-                    (liveVitals?.anomalyScore ??
-                        0.0), // Mock confidence from anomaly
+                confidence: liveVitals?.signalQualityScore ?? 0.0,
                 hrMin: liveVitals == null ? 0 : liveVitals.hrBpm - 4,
                 hrMax: liveVitals == null ? 0 : liveVitals.hrBpm + 7,
               ),
@@ -766,6 +764,14 @@ class _ModelOutputSection extends StatelessWidget {
                 value: vitals.ectopyLabel,
                 detail:
                     'PVC ${(vitals.pvcProbability * 100).round()}%, PAC ${(vitals.pacProbability * 100).round()}% | Người dùng thấy: ${HealthDisplayMapper.ectopySummary(vitals.ectopyLabel)}',
+              ),
+              const Divider(height: 16),
+              _MetricRow(
+                label: 'Anomaly',
+                value: vitals.anomalyLabel,
+                detail: vitals.anomalyLabel == 'abnormal'
+                    ? 'Tin hieu sang loc bat thuong ECG. Can xem cung chat luong tin hieu, rhythm va lich su.'
+                    : 'Khong ghi nhan bat thuong ECG tu model anomaly trong cua so gan nhat.',
               ),
               const Divider(height: 16),
               _MetricRow(

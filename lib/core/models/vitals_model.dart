@@ -563,7 +563,8 @@ List<ClinicalAlert> _clinicalAlertsFromJson(
     alerts.add(const ClinicalAlert(
       type: 'ecg_anomaly',
       level: 'WATCH',
-      detail: 'Có điểm đo cần xem lại cùng chất lượng tín hiệu và lịch sử.',
+      detail:
+          'Có tín hiệu ECG bất thường sơ bộ. Cần kiểm tra chất lượng dây đeo và theo dõi nếu lặp lại.',
     ));
   }
   return alerts;

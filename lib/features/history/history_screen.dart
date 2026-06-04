@@ -160,8 +160,6 @@ class _BeatDistributionTab extends StatelessWidget {
           fast++;
         else if (p.hrBpm < 50)
           slow++;
-        else if (p.anomalyScore > 0.5)
-          pvc++;
         else
           normal++;
       }
