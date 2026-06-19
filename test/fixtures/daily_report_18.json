@@ -1,0 +1,44 @@
+{
+  "patient_id": "demo_patient",
+  "date": "2026-06-18",
+  "session_id": "20260618",
+  "total_windows": 4448,
+  "has_data": true,
+  "t_start": "2026-06-18T08:00:39+07:00",
+  "t_end": "2026-06-18T23:59:51+07:00",
+  "reliable_windows": 4227,
+  "signal_quality": {"good": 3936, "fair": 291, "poor": 221},
+  "activity": {"REST": 3923, "SLOW_WALK": 264, "WALK": 142},
+  "hr_stats": {"n": 4227, "mean": 108.7, "median": 108.7, "min": 68.8, "max": 182.2, "std": 24.5},
+  "hr_bands": {"<60": 0, "60-99": 1901, "100-119": 912, "120-149": 1120, ">=150": 294},
+  "hourly": [
+    {"hour": "08", "n": 91, "mean": 95.8, "min": 72.6, "max": 153.5},
+    {"hour": "22", "n": 320, "mean": 152.9, "min": 89.4, "max": 181.1}
+  ],
+  "series": [
+    {"t": "08:00", "hr": 84.6},
+    {"t": "22:09", "hr": 164.7}
+  ],
+  "rhythm": {"normal": 2631, "noise": 888, "other_rhythm": 659, "possible_afib": 49},
+  "ectopy": {"normal": 2885, "pac": 687, "pvc": 627, "mixed_ectopic": 17, "other": 11},
+  "afib": {"mean": 0.035, "max": 0.788, "over03": 101},
+  "stress_stats": {
+    "valid": 3918, "unknown": 309, "stress": 1813, "non_stress": 2105,
+    "pct_stress": 46.3, "mean_prob": 0.55, "max_prob": 0.99,
+    "hourly": [{"hour": "19", "stress": 350, "total": 350, "pct": 100.0}]
+  },
+  "total_events": 6801,
+  "event_types": {"hr_context": 2719, "stress_suspicion": 1783, "af_suspicion": 687, "critical_hr_immobile": 25, "fall_candidate": 3},
+  "event_severity": {"medium": 6741, "high": 34, "critical": 26},
+  "critical_events": [
+    {"t": "21:21:46", "type": "fall_candidate", "hr": null},
+    {"t": "22:09:40", "type": "critical_hr_immobile", "hr": 160.66}
+  ],
+  "fall_events": [
+    {"t": "21:21:46", "conf": 0.95, "msg": "impact + free-fall + post-still"}
+  ],
+  "days": [
+    {"day": "20260617", "date": "2026-06-17", "n": 193, "mean": 99.2, "median": 99.8, "max": 152.3, "pct_over100": 49.7},
+    {"day": "20260618", "date": "2026-06-18", "n": 3843, "mean": 109.0, "median": 103.6, "max": 182.2, "pct_over100": 53.3}
+  ]
+}
