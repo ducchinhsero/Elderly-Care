@@ -51,6 +51,21 @@ class HealthReportScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Card(
+                      color: AppColors.primary.withValues(alpha: 0.06),
+                      child: ListTile(
+                        leading: const Icon(Icons.bar_chart,
+                            color: AppColors.primary),
+                        title: const Text('Báo cáo thống kê theo ngày',
+                            style: TextStyle(fontWeight: FontWeight.w800)),
+                        subtitle: const Text(
+                            'Chọn một ngày để xem biểu đồ nhịp tim, sự kiện, '
+                            'rhythm/ectopy, stress…'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push('/daily-report'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     if (vitalsState.error != null)
                       _InfoBanner(
                         icon: Icons.info_outline,

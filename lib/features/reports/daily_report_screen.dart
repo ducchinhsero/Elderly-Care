@@ -40,21 +40,20 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
   @override
   Widget build(BuildContext context) {
     final availableAsync = ref.watch(availableReportDaysProvider);
+    final available = availableAsync.valueOrNull ?? const <AvailableDay>[];
 
-    // Default the selected date to the most recent day with data.
-    final available = availableAsync.maybeWhen(
-      data: (days) => days,
-      orElse: () => <AvailableDay>[],
-    );
-    DateTime? newest;
-    if (available.isNotEmpty) {
-      newest = DateTime.tryParse(available.first.date);
-    }
+    final newest =
+        available.isNotEmpty ? DateTime.tryParse(available.first.date) : null;
+    // Only query a report once we know which date to show. This avoids briefly
+    // showing an empty "today" while the day list is still loading — important
+    // on a free cloud dyno that cold-starts (~30–50s) on first request.
+    final hasDate = _selected != null || newest != null;
     final effective = _selected ?? newest ?? _stripTime(DateTime.now());
     final dateStr = _apiFmt.format(effective);
 
-    final reportAsync = ref.watch(dailyReportProvider(dateStr));
-    final report = reportAsync.valueOrNull;
+    final reportAsync =
+        hasDate ? ref.watch(dailyReportProvider(dateStr)) : null;
+    final report = reportAsync?.valueOrNull;
     final canExport = report != null && report.hasData;
 
     return Scaffold(
@@ -70,48 +69,74 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
             icon: const Icon(Icons.refresh),
             tooltip: 'Tải lại',
             onPressed: () {
-              ref.invalidate(dailyReportProvider(dateStr));
               ref.invalidate(availableReportDaysProvider);
+              if (hasDate) ref.invalidate(dailyReportProvider(dateStr));
             },
           ),
         ],
       ),
       body: Column(
         children: [
-          _DateBar(
-            date: effective,
-            displayText: _displayText(effective),
-            availableDates: available
-                .map((d) => DateTime.tryParse(d.date))
-                .whereType<DateTime>()
-                .map(_stripTime)
-                .toSet(),
-            onPick: (d) => setState(() => _selected = _stripTime(d)),
-            onPrev: () => setState(
-                () => _selected = _stripTime(effective.subtract(const Duration(days: 1)))),
-            onNext: () {
-              final next = _stripTime(effective.add(const Duration(days: 1)));
-              if (!next.isAfter(_stripTime(DateTime.now()))) {
-                setState(() => _selected = next);
-              }
-            },
-            canGoNext: _stripTime(effective)
-                .isBefore(_stripTime(DateTime.now())),
-          ),
-          Expanded(
-            child: reportAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => _ErrorState(
-                message: '$e',
-                onRetry: () => ref.invalidate(dailyReportProvider(dateStr)),
-              ),
-              data: (data) => data.hasData
-                  ? _ReportBody(report: data)
-                  : const _EmptyState(),
+          if (hasDate)
+            _DateBar(
+              date: effective,
+              displayText: _displayText(effective),
+              availableDates: available
+                  .map((d) => DateTime.tryParse(d.date))
+                  .whereType<DateTime>()
+                  .map(_stripTime)
+                  .toSet(),
+              onPick: (d) => setState(() => _selected = _stripTime(d)),
+              onPrev: () => setState(() => _selected =
+                  _stripTime(effective.subtract(const Duration(days: 1)))),
+              onNext: () {
+                final next = _stripTime(effective.add(const Duration(days: 1)));
+                if (!next.isAfter(_stripTime(DateTime.now()))) {
+                  setState(() => _selected = next);
+                }
+              },
+              canGoNext:
+                  _stripTime(effective).isBefore(_stripTime(DateTime.now())),
             ),
+          Expanded(
+            child: _buildContent(availableAsync, reportAsync, dateStr),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildContent(
+    AsyncValue<List<AvailableDay>> availableAsync,
+    AsyncValue<DailyReportModel>? reportAsync,
+    String dateStr,
+  ) {
+    // Day list not ready and the user hasn't picked a date yet.
+    if (reportAsync == null) {
+      if (availableAsync.isLoading) {
+        return const _LoadingState(
+          message: 'Đang kết nối cloud và tải danh sách ngày…\n'
+              'Lần đầu có thể mất ~30–50s nếu máy chủ vừa "ngủ dậy".',
+        );
+      }
+      if (availableAsync.hasError) {
+        return _ErrorState(
+          message: 'Không tải được danh sách ngày: ${availableAsync.error}',
+          onRetry: () => ref.invalidate(availableReportDaysProvider),
+        );
+      }
+      return const _EmptyState(
+        message: 'Chưa có dữ liệu nào trên cloud cho bệnh nhân này.',
+      );
+    }
+    return reportAsync.when(
+      loading: () => const _LoadingState(message: 'Đang tải báo cáo…'),
+      error: (e, _) => _ErrorState(
+        message: '$e',
+        onRetry: () => ref.invalidate(dailyReportProvider(dateStr)),
+      ),
+      data: (data) =>
+          data.hasData ? _ReportBody(report: data) : const _EmptyState(),
     );
   }
 
@@ -1263,8 +1288,9 @@ class _Disclaimer extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+class _LoadingState extends StatelessWidget {
+  final String message;
+  const _LoadingState({required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -1274,14 +1300,39 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.event_busy,
-                size: 48, color: AppColors.textHint),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final String message;
+  const _EmptyState(
+      {this.message = 'Hãy chọn một ngày khác có dữ liệu đo.'});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.event_busy, size: 48, color: AppColors.textHint),
             const SizedBox(height: 12),
             const Text('Không có dữ liệu cho ngày này',
                 style: TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            const Text('Hãy chọn một ngày khác có dữ liệu đo.',
-                style: TextStyle(color: AppColors.textSecondary)),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textSecondary)),
           ],
         ),
       ),
