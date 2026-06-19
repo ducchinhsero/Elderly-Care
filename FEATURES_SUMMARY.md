@@ -1,79 +1,100 @@
-# Tổng Kết Tính Năng Ứng Dụng Elder Health Monitor
+# Tong ket tinh nang ung dung Elder Health Monitor
 
-Ứng dụng **Elder Health Monitor** hiện tại hỗ trợ 2 vai trò riêng biệt: **Người đeo (Wearer)** và **Người giám sát (Caregiver)**. Tùy thuộc vào vai trò được chọn ở màn hình Onboarding, giao diện và chức năng của ứng dụng sẽ được điều chỉnh tương ứng. Dưới đây là bảng tổng hợp chi tiết các tính năng hiện có.
+Tai lieu nay mo ta cac tinh nang dang co trong Flutter app theo trang thai hien tai cua du an.
 
----
+## 1. Luong nguoi deo
 
-## 1. Giao Diện Người Đeo Thiết Bị (Wearer Mode)
+Nguoi deo la nguoi dung gan Raspberry/Polar H10. App doc du lieu tu backend edge noi bo:
 
-Đây là chế độ dành cho người cao tuổi trực tiếp đeo thiết bị cảm biến (VD: đồng hồ, đai đeo tim). Giao diện tập trung vào việc đo đạc, cá nhân hóa cảnh báo và tự theo dõi sức khỏe.
+- Base URL mac dinh: `http://elderlycare.local:8000`.
+- Co the thay bang IP Raspberry trong Settings.
+- Du lieu realtime den tu REST `/latest-result`, WebSocket `/ws/vitals` va MQTT LAN neu moi truong ho tro.
 
-### 🏥 Hồ Sơ Y Tế Cá Nhân (Medical Profile)
-- **Thông tin cơ bản**: Quản lý thông tin chiều cao, cân nặng, độ tuổi, giới tính.
-- **Khai báo bệnh nền**: Cho phép tick chọn các bệnh lý tim mạch/hô hấp có sẵn (Rung nhĩ, Tiểu đường, Suy tim,...). Hiển thị các Banner chú thích (InfoBanner) để người dùng hiểu tầm quan trọng của việc khai báo.
-- **Danh sách Thuốc (Medications)**: Lựa chọn các loại thuốc đang sử dụng (VD: Chẹn beta, Máy tạo nhịp tim,...). 
-- **AI Tự Động Điều Chỉnh Ngưỡng (Smart Thresholds)**:
-  - Dựa vào bệnh nền và thuốc, AI sẽ tự động nới lỏng hoặc siết chặt ngưỡng cảnh báo (Ví dụ: Dùng thuốc chẹn beta sẽ hạ ngưỡng nhịp tim tối thiểu; có rung nhĩ sẽ bỏ qua cảnh báo nhịp không đều thường xuyên).
-  - Cung cấp giao diện bảng so sánh giữa **Ngưỡng Mặc Định** và **Ngưỡng Của Bạn** kèm theo lý do giải thích chi tiết.
-- **Căn Chỉnh Sinh Tồn (Calibration)**: Nút kích hoạt quá trình tự học nhịp tim và HRV trong 5 phút khi nghỉ ngơi để tạo baseline (đường cơ sở) cá nhân.
+Tinh nang:
 
-### 📊 Dashboard & Giao Diện Chính
-- **Vòng Tròn Nhịp Tim (HR Gauge)**: 
-  - Hiển thị nhịp tim theo thời gian thực ở trung tâm với vòng cung gradient.
-  - Hiệu ứng nhịp đập (pulse animation) đồng bộ với tốc độ nhịp tim.
-  - Hiệu ứng nhấp nháy liên tục khi ở mức **Khẩn cấp (CRITICAL)**.
-  - Hiển thị dải chỉ số nhỏ bên dưới: Nhịp Min - Trung Bình - Max.
-- **Thẻ Tình Trạng Tim (Condition Indicator)**: 
-  - Phân tích và hiển thị tên tình trạng nhịp tim hiện tại bằng tiếng Việt (VD: *Ngoại tâm thu, Rung nhĩ đáp ứng thất nhanh*...).
-  - Badge tự tin (Confidence Badge) báo hiệu trạng thái *Đang phân tích* nếu dữ liệu chưa chắc chắn.
-- **Thẻ Trạng Thái Cảm Xúc (Emotion Card)**: 
-  - Đánh giá mức độ thư giãn, căng thẳng hoặc phấn chấn dựa trên hệ thần kinh tự chủ (HRV).
-  - Tự động khóa (báo *"Đang vận động - không đánh giá"*) nếu phát hiện người dùng đang đi bộ hoặc tập thể dục.
-- **Thẻ Hoạt Động (Activity Badge)**: Hiển thị trạng thái đang nghỉ ngơi, đi bộ chậm, hay vận động mạnh.
+- Onboarding chon vai tro, nhap ten, tuoi, nguoi giam ho va ma thiet bi.
+- Dashboard hien thi tinh trang hien tai theo ngon ngu de hieu:
+  - Tinh trang.
+  - Viec nen lam.
+  - Thong tin do duoc.
+- Hien thi nhan than thien thay cho thuat ngu ky thuat:
+  - `AFib` -> dau hieu nhip tim khong deu.
+  - `PVC/PAC` -> nhip den som.
+  - `RMSSD/HRV` -> muc phuc hoi/cang thang co the.
+  - `baseline` -> muc binh thuong cua rieng ban.
+- Trang thai ket noi Raspberry/Polar:
+  - Raspberry chua ket noi.
+  - Raspberry da ket noi, can kiem tra Polar.
+  - Raspberry va Polar dang hoat dong.
+- Nut khoi dong Polar thu cong trong Settings khi auto-start khong hoat dong.
+- Thiet lap Wi-Fi Raspberry bang AP `ElderlyCare-Setup-XXXX` va portal `http://10.42.0.1`.
 
-### ⚠️ Hệ Thống Cảnh Báo (Alerts)
-- Hiển thị ngay một **Banner Cảnh Báo Lâm Sàng** trên Dashboard khi phát hiện nhịp tim có vấn đề (Ví dụ: Cảnh báo Rung nhĩ kèm nút "Xem chi tiết").
-- **Trung Tâm Cảnh Báo (Alert Center)**: 
-  - Phân trang thời gian: Mới, Hôm nay, Tuần này.
-  - Hỗ trợ công tắc (Toggle): **Bỏ qua cảnh báo "THEO DÕI"** để chỉ tập trung vào các cảnh báo nghiêm trọng.
-  - Cử chỉ quẹt để đánh dấu đã đọc (Swipe to dismiss).
+## 2. Luong nguoi giam sat
 
-### 📈 Lịch Sử & Biểu Đồ Nâng Cao (History)
-- **Biểu đồ Đường (Line Chart)**: Xem xu hướng nhịp tim trong 24h, 7 ngày, 30 ngày.
-- **Biểu đồ Phân Bố (Pie Chart)**: Trực quan hóa tỷ lệ phần trăm các loại nhịp tim trong ngày (Bình thường, Nhanh, Chậm, Ngoại tâm thu).
-- **Xu hướng HRV & Phục hồi**: Đánh giá sự phục hồi của cơ thể thông qua chỉ số RMSSD.
-- **Phân bố Hoạt Động & Cảm Xúc**: Thống kê thời gian vận động và trạng thái tâm lý trong ngày.
+Nguoi giam sat theo doi tu xa qua cloud/base URL duoc cau hinh trong build hoac settings noi bo.
 
----
+Tinh nang:
 
-## 2. Giao Diện Người Giám Sát (Caregiver Mode)
+- Luu caregiver name, target patient id/name va access code.
+- Ket noi realtime qua:
+  - `/ws/alerts` cho canh bao high/critical.
+  - `/ws/vitals` cho sinh hieu.
+  - HTTP polling fallback `/alerts/realtime` moi khoang 10 giay.
+  - `/events` cho timeline day du.
+- Alert Center uu tien canh bao nghiem trong, co trang thai da doc/da kiem tra.
+- CTA cho canh bao nghiem trong:
+  - `Da kiem tra nguoi dung` -> `POST /alerts/{event_id}/ack`.
+  - Resolve -> `POST /alerts/{event_id}/resolve`.
+- Dashboard caregiver hien thi nguoi dang duoc theo doi va trang thai ket noi.
 
-Đây là chế độ dành cho người nhà (con cái) hoặc Bác sĩ để theo dõi bệnh nhân từ xa.
+## 3. Canh bao
 
-### 🌐 Kết Nối & Tổng Quan
-- **Theo dõi từ xa**: 
-  - Kết nối qua MQTT / WebSocket lấy dữ liệu cloud theo thời gian thực.
-  - Có một **Banner "Đang theo dõi người thân"** (Remote Mode) luôn hiển thị trên Dashboard để phân biệt với chế độ đeo trực tiếp.
-  - Hiển thị tên của Bệnh nhân đang được theo dõi trên AppBar (VD: "Mẹ Lan").
-  - Trạng thái kết nối (Online/Offline) với server trung tâm để đảm bảo dữ liệu đang được đồng bộ.
+Mapping hien thi chinh:
 
-### 📑 Dashboard Chuyên Dụng
-- Kế thừa toàn bộ giao diện xem thông số của Người đeo (Vòng tròn HR, Cảm xúc, Hoạt động, Lịch sử).
-- Không có chức năng sửa đổi Hồ Sơ Y Tế (Chỉ Read-only) để tránh làm sai lệch thông tin của bệnh nhân.
+| Backend | UI |
+|---|---|
+| `SAFE` / `normal` / `low` | On dinh |
+| `WATCH` / `medium` | Can theo doi |
+| `ALERT` / `high` | Can kiem tra |
+| `CRITICAL` / `critical` | Can ho tro ngay |
 
-### 🖨️ Xuất Báo Cáo Y Tế (Clinical Report)
-- Chức năng cực kỳ quan trọng cho người chăm sóc: **Tạo báo cáo bác sĩ**.
-- Nút bấm xuất file PDF chuyên nghiệp chuẩn y khoa (Hỗ trợ font Tiếng Việt đầy đủ).
-- **Nội dung Báo cáo PDF bao gồm**:
-  - Thông tin bệnh nhân (Tuổi, Bệnh nền, Thuốc đang dùng).
-  - Tóm tắt tổng quan chỉ số (HR, RMSSD, Tỷ lệ nhịp bình thường/bất thường).
-  - Danh sách Bảng thống kê các sự kiện bất thường đáng chú ý (Clinical Alerts).
-  - Phân tích và đề xuất sơ bộ từ hệ thống AI (Gợi ý khám chuyên khoa nếu phát hiện dấu hiệu).
-- Tích hợp sẵn chức năng **Chia sẻ (Share)** file báo cáo thẳng qua Zalo, Email, hoặc in ra giấy.
+Moi canh bao nen du 3 y:
 
----
+- Chuyen gi dang xay ra.
+- Vi sao can chu y.
+- Ban nen lam gi.
 
-## 3. Kiến Trúc Dữ Liệu Chung (Core Logic)
-- **Cơ sở dữ liệu cục bộ (Isar/Memory)**: Đảm bảo app phản hồi tức thì, lưu trữ an toàn hồ sơ bệnh nhân.
-- **Xử lý nền (Background Processing)**: Cho phép kết nối và nhận cảnh báo (Push Notification) cả khi tắt app (đang tiếp tục hoàn thiện logic native).
-- **Riverpod State Management**: Tự động rebuild các widget phức tạp (Biểu đồ, Dashboard) một cách mượt mà nhất ngay khi có gói dữ liệu ECG/PPG mới đẩy về.
+Canh bao nghiem trong:
+
+- Te nga manh.
+- Nhip tim qua nhanh/qua cham nguy hiem theo ngu canh.
+- Dau hieu nhip tim khong deu muc cao.
+- Tin hieu xau keo dai lam he thong khong danh gia duoc.
+
+## 4. Du lieu va bao cao
+
+- History doc `/history`.
+- Health Summary doc `/health-report`.
+- Alert timeline doc `/events`.
+- Urgent alert doc `/alerts/realtime`.
+- Profile local luu bang Hive; backend profile endpoint `/api/user/{id}` van duoc giu cho tuong thich.
+
+Bao cao trong app nen hien thi "tom tat de hieu" truoc, thuat ngu ky thuat nam trong phan mo rong. He thong la cong cu theo doi/sang loc, khong phai chan doan y khoa.
+
+## 5. Du lieu ky thuat
+
+Settings co phan "Du lieu ky thuat" de caregiver/dev xem:
+
+- Base URL hien tai.
+- Trang thai `/health`.
+- Cac endpoint app dang dung.
+- Header/API key/device/access code dang dung.
+- Mapping canh bao backend -> noi dung nguoi dung thay.
+- Raw payload chi nen mo bang phan "xem du lieu goc", khong hien mac dinh.
+
+## 6. Gioi han hien tai
+
+- Push notification native chua phai duong canh bao production chinh.
+- Flutter Web khong ho tro raw TCP MQTT; dung REST/WebSocket cho Web.
+- PDF/report nang va guided baseline nhieu buoc la tinh nang phu, khong phai luong chinh cua demo on dinh.
+- App khong tu dieu khien chan doan y khoa; moi ket qua bat thuong can duoc xac nhan boi nguoi cham soc/nhan vien y te khi can.

@@ -102,7 +102,7 @@ class AlertItemWidget extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: onAcknowledge,
                   icon: const Icon(Icons.check_circle_outline, size: 18),
-                  label: const Text('ÄÃ£ kiá»ƒm tra ngÆ°á»i dÃ¹ng'),
+                  label: const Text('Đã kiểm tra người dùng'),
                 ),
               ),
             ],
@@ -114,7 +114,7 @@ class AlertItemWidget extends StatelessWidget {
                       size: 13, color: AppColors.safe),
                   const SizedBox(width: 4),
                   Text(
-                    'ÄÃ£ xÃ¡c nháº­n kiá»ƒm tra',
+                    'Đã xác nhận kiểm tra',
                     style: TextStyle(
                       fontSize: 11,
                       color: AppColors.safe,

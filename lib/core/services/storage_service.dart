@@ -50,7 +50,7 @@ class StorageService {
   /// API Base URL — wearer reads the local edge gateway, caregiver reads cloud.
   String get apiBaseUrl {
     if (isCaregiver) {
-      return cloudUrl.isNotEmpty ? cloudUrl : defaultCloudBaseUrl;
+      return cloudUrl.isNotEmpty ? _edgeBaseUrl(cloudUrl) : defaultCloudBaseUrl;
     }
     return _edgeBaseUrl(gatewayIp);
   }

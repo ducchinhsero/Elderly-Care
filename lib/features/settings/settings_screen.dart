@@ -15,6 +15,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _ipController = TextEditingController(text: '192.168.1.100');
+  final _cloudUrlController = TextEditingController();
   final _codeController = TextEditingController();
   final _apiKeyController = TextEditingController();
   final _emergencyPhoneController = TextEditingController();
@@ -42,6 +43,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _loadSettings() {
     final storage = ref.read(storageServiceProvider);
     _ipController.text = storage.gatewayIp;
+    _cloudUrlController.text = storage.cloudUrl;
     _codeController.text =
         storage.isCaregiver ? storage.pairingCode : storage.deviceCode;
     _apiKeyController.text = storage.apiKey;
@@ -58,6 +60,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void dispose() {
     _ipController.dispose();
+    _cloudUrlController.dispose();
     _codeController.dispose();
     _apiKeyController.dispose();
     _emergencyPhoneController.dispose();
@@ -132,17 +135,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ref.read(storageServiceProvider).setPairingCode(v),
                     ),
                     const SizedBox(height: 12),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.cloud_sync_outlined),
-                      title: const Text('Cloud hệ thống'),
-                      subtitle: Text(
-                        'Endpoint cloud được cấu hình trong bản build. Raspberry gửi dữ liệu đã xử lý lên cloud để app đồng bộ từ xa.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
+                    TextField(
+                      controller: _cloudUrlController,
+                      decoration: const InputDecoration(
+                        labelText: 'Địa chỉ Pi / Server',
+                        helperText:
+                            'elderlycare.local, IP LAN, host:port hoặc URL cloud đầy đủ',
+                        prefixIcon: Icon(Icons.router_outlined),
                       ),
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
+                      onChanged: (v) =>
+                          ref.read(storageServiceProvider).setCloudUrl(v.trim()),
                     ),
                   ],
                   // Wearer: local edge gateway REST API.
@@ -467,6 +471,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (!storage.isCaregiver) {
       await storage.setGatewayIp(_ipController.text.trim());
+    } else {
+      await storage.setCloudUrl(_cloudUrlController.text.trim());
     }
     await storage.setApiKey(_apiKeyController.text.trim());
     final apiService = ref.read(apiServiceProvider);

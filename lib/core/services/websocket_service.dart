@@ -125,7 +125,7 @@ class WebSocketService {
     _updateConnectionState(WsConnectionState.disconnected);
   }
 
-  /// Káº¿t ná»‘i kÃªnh cáº£nh bÃ¡o nghiÃªm trá»ng cho caregiver.
+  /// Kết nối kênh cảnh báo nghiêm trọng cho caregiver.
   Future<bool> connectAlerts({
     String? patientId,
     String? caregiverId,

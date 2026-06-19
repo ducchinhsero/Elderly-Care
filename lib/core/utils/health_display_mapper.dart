@@ -41,6 +41,13 @@ class HealthDisplayMapper {
       userAction: 'Nghỉ ngơi, đo lại và kiểm tra triệu chứng.',
     ),
     AlertMappingInfo(
+      backendType:
+          'sustained_tachycardia_immobile, sustained_bradycardia_immobile, critical_hr_immobile',
+      userTitle: 'Nhịp tim bất thường kéo dài khi ít vận động',
+      userAction:
+          'Kiểm tra người dùng và hỏi xem có mệt, chóng mặt, đau ngực hoặc khó thở không.',
+    ),
+    AlertMappingInfo(
       backendType: 'bradycardia',
       userTitle: 'Nhịp tim chậm hơn bình thường',
       userAction: 'Kiểm tra người dùng nếu chóng mặt, mệt hoặc khó thở.',
@@ -93,6 +100,15 @@ class HealthDisplayMapper {
   static String alertTitle(String type) {
     final key = type.toLowerCase();
     if (key.contains('fall')) return 'Nghi ngờ té ngã';
+    if (key.contains('critical_hr_immobile')) {
+      return 'Nhịp tim nguy hiểm khi người dùng đang bất động';
+    }
+    if (key.contains('sustained_tachycardia_immobile')) {
+      return 'Nhịp tim cao khi đang ít vận động';
+    }
+    if (key.contains('sustained_bradycardia_immobile')) {
+      return 'Nhịp tim thấp kéo dài';
+    }
     if (key.contains('afib') ||
         key.contains('rhythm') ||
         key.contains('af_suspicion')) {
@@ -117,6 +133,15 @@ class HealthDisplayMapper {
     final key = type.toLowerCase();
     if (key.contains('fall')) {
       return 'Cảm biến ghi nhận chuyển động giống té ngã.';
+    }
+    if (key.contains('critical_hr_immobile')) {
+      return 'Người dùng gần như không vận động nhưng nhịp tim ở mức rất bất thường trong nhiều lần đo liên tiếp.';
+    }
+    if (key.contains('sustained_tachycardia_immobile')) {
+      return 'Nhịp tim cao kéo dài trong khi cảm biến cho thấy người dùng đang ít vận động.';
+    }
+    if (key.contains('sustained_bradycardia_immobile')) {
+      return 'Nhịp tim thấp kéo dài trong khi cảm biến cho thấy người dùng đang ít vận động.';
     }
     if (key.contains('afib') ||
         key.contains('rhythm') ||
@@ -146,6 +171,13 @@ class HealthDisplayMapper {
 
   static String alertAction(String type, String level) {
     final key = type.toLowerCase();
+    if (key.contains('critical_hr_immobile')) {
+      return 'Kiểm tra người dùng ngay và gọi hỗ trợ y tế nếu có ngất, đau ngực, khó thở hoặc lơ mơ.';
+    }
+    if (key.contains('sustained_tachycardia_immobile') ||
+        key.contains('sustained_bradycardia_immobile')) {
+      return 'Kiểm tra người dùng, cho nghỉ ở tư thế an toàn và liên hệ nhân viên y tế nếu có triệu chứng.';
+    }
     if (level.toUpperCase() == 'CRITICAL' || key.contains('fall')) {
       return 'Kiểm tra người dùng ngay.';
     }

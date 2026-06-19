@@ -38,6 +38,14 @@ class VitalsModel {
   final List<ClinicalAlert> clinicalAlerts;
   final String rmssdNormal;
   final double latencyMs;
+  // Backend contract additions.
+  final bool hasHr; // false when backend heart_rate_bpm is null (poor signal)
+  final List<String> signalQualityReasons;
+  final double afBurdenPercent;
+  final bool afEpisodeActive;
+  final double afCurrentEpisodeSec;
+  final int afEpisodeCount;
+  final String hrEventLabel;
 
   const VitalsModel({
     required this.timestamp,
@@ -75,6 +83,13 @@ class VitalsModel {
     required this.clinicalAlerts,
     required this.rmssdNormal,
     required this.latencyMs,
+    this.hasHr = false,
+    this.signalQualityReasons = const [],
+    this.afBurdenPercent = 0.0,
+    this.afEpisodeActive = false,
+    this.afCurrentEpisodeSec = 0.0,
+    this.afEpisodeCount = 0,
+    this.hrEventLabel = 'normal_hr',
   });
 
   factory VitalsModel.fromJson(Map<String, dynamic> json) {
@@ -95,6 +110,14 @@ class VitalsModel {
         sensor['activity_features'] as Map<String, dynamic>? ?? const {};
     final hrEvent = latest['hr_event'] as Map<String, dynamic>? ?? const {};
     final fall = sensor['fall'] as Map<String, dynamic>? ?? const {};
+    final afEpisode =
+        latest['af_episode'] as Map<String, dynamic>? ?? const {};
+    final hrRaw = latest['heart_rate_bpm'] ?? latest['hr_bpm'];
+    final qualityReasons = (quality['reasons'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        const <String>[];
 
     final rhythmLabel =
         _str(rhythm['label'], fallback: latest['beat_type'] ?? 'unknown');
@@ -180,6 +203,13 @@ class VitalsModel {
       latencyMs: _num(latest['latency_ms'] is Map
           ? (latest['latency_ms'] as Map)['total']
           : latest['latency_ms']),
+      hasHr: hrRaw != null,
+      signalQualityReasons: qualityReasons,
+      afBurdenPercent: _num(afEpisode['af_burden_percent']),
+      afEpisodeActive: afEpisode['active'] == true,
+      afCurrentEpisodeSec: _num(afEpisode['current_episode_duration_sec']),
+      afEpisodeCount: _int(afEpisode['af_episode_count']),
+      hrEventLabel: _str(hrEvent['label'], fallback: 'normal_hr'),
     );
   }
 
@@ -289,6 +319,13 @@ class VitalsModel {
     List<ClinicalAlert>? clinicalAlerts,
     String? rmssdNormal,
     double? latencyMs,
+    bool? hasHr,
+    List<String>? signalQualityReasons,
+    double? afBurdenPercent,
+    bool? afEpisodeActive,
+    double? afCurrentEpisodeSec,
+    int? afEpisodeCount,
+    String? hrEventLabel,
   }) {
     return VitalsModel(
       timestamp: timestamp ?? this.timestamp,
@@ -326,8 +363,23 @@ class VitalsModel {
       clinicalAlerts: clinicalAlerts ?? this.clinicalAlerts,
       rmssdNormal: rmssdNormal ?? this.rmssdNormal,
       latencyMs: latencyMs ?? this.latencyMs,
+      hasHr: hasHr ?? this.hasHr,
+      signalQualityReasons: signalQualityReasons ?? this.signalQualityReasons,
+      afBurdenPercent: afBurdenPercent ?? this.afBurdenPercent,
+      afEpisodeActive: afEpisodeActive ?? this.afEpisodeActive,
+      afCurrentEpisodeSec: afCurrentEpisodeSec ?? this.afCurrentEpisodeSec,
+      afEpisodeCount: afEpisodeCount ?? this.afEpisodeCount,
+      hrEventLabel: hrEventLabel ?? this.hrEventLabel,
     );
   }
+
+  /// HR text for display — "--" when the backend could not measure HR.
+  String get hrText => hasHr ? hrBpm.toStringAsFixed(0) : '--';
+
+  /// Stress model is still filling its 5-minute rolling RR window.
+  bool get stressIsWarmingUp =>
+      stressLabel.toLowerCase() == 'unknown' &&
+      stressReason.toLowerCase().contains('warming');
 }
 
 class ClinicalAlert {

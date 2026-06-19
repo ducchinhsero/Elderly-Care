@@ -6,6 +6,7 @@ import '../services/mock_data_service.dart';
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
+import '../utils/alert_notification_policy.dart';
 import 'vitals_provider.dart';
 
 class AlertsState {
@@ -85,11 +86,11 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
             _mergeAlerts(alerts);
           }
         } catch (e) {
-          state = state.copyWith(error: 'Lá»—i parse cáº£nh bÃ¡o realtime: $e');
+          state = state.copyWith(error: 'Lỗi đọc cảnh báo realtime: $e');
         }
       },
       onError: (e) {
-        state = state.copyWith(error: 'Lá»—i WebSocket cáº£nh bÃ¡o: $e');
+        state = state.copyWith(error: 'Lỗi WebSocket cảnh báo: $e');
       },
     );
     unawaited(_webSocketService.connectAlerts(
@@ -175,6 +176,12 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
   Future<void> _notifyNewAlert(AlertModel alert) async {
     final level = alert.level.toUpperCase();
     if (level == 'SAFE') return;
+    if (!AlertNotificationPolicy.shouldPopup(
+      type: alert.type,
+      level: alert.level,
+    )) {
+      return;
+    }
     if (!_isNotificationAllowed(alert)) return;
 
     final key = '${alert.type}_$level';
@@ -208,12 +215,10 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
   }
 
   bool _bypassesQuietHours(AlertModel alert) {
-    final type = alert.type.toLowerCase();
-    return alert.isCritical ||
-        type.contains('fall') ||
-        type.contains('tachy') ||
-        type.contains('brady') ||
-        type.contains('afib');
+    return AlertNotificationPolicy.bypassesQuietHours(
+      type: alert.type,
+      level: alert.level,
+    );
   }
 
   String _notificationTitle(AlertModel alert) {
@@ -288,8 +293,8 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
       state = state.copyWith(
         isLoading: false,
         error: state.alerts.isEmpty
-            ? 'KhÃ´ng thá»ƒ táº£i cáº£nh bÃ¡o kháº©n: $e'
-            : 'Máº¥t káº¿t ná»‘i cáº£nh bÃ¡o realtime, Ä‘ang giá»¯ dá»¯ liá»‡u gáº§n nháº¥t.',
+            ? 'Không thể tải cảnh báo khẩn: $e'
+            : 'Mất kết nối cảnh báo realtime, đang giữ dữ liệu gần nhất.',
       );
     }
   }
@@ -316,7 +321,7 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
         unreadCount: updatedAlerts.where((a) => !a.isRead).length,
       );
     } catch (e) {
-      state = state.copyWith(error: 'KhÃ´ng thá»ƒ xÃ¡c nháº­n cáº£nh bÃ¡o: $e');
+      state = state.copyWith(error: 'Không thể xác nhận cảnh báo: $e');
     }
   }
 
@@ -374,9 +379,6 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
     if (_storageService.isCaregiver &&
         _storageService.monitorTargetId.isNotEmpty) {
       return _storageService.monitorTargetId;
-    }
-    if (_storageService.isWearer && _storageService.deviceCode.isNotEmpty) {
-      return _storageService.deviceCode;
     }
     return null;
   }

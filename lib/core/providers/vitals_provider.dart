@@ -8,6 +8,7 @@ import '../services/mqtt_service.dart';
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
+import '../utils/alert_notification_policy.dart';
 
 class VitalsState {
   final VitalsModel? currentVitals;
@@ -236,11 +237,11 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
         try {
           _updateVitals(VitalsModel.fromJson(json));
         } catch (e) {
-          state = state.copyWith(error: 'Lá»—i parse MQTT: $e');
+          state = state.copyWith(error: 'Lỗi đọc MQTT: $e');
         }
       },
       onError: (e) {
-        state = state.copyWith(error: 'Lá»—i MQTT: $e');
+        state = state.copyWith(error: 'Lỗi MQTT: $e');
       },
     );
     _mqttAlertSubscription = _mqttService.alertStream.listen(
@@ -339,19 +340,9 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
     final urgentAlerts =
         vitals.clinicalAlerts.where(_isImmediateClinicalAlert).toList();
 
-    if (urgentAlerts.isEmpty && !vitals.isCritical) return;
+    if (urgentAlerts.isEmpty) return;
 
-    final alerts = urgentAlerts.isNotEmpty
-        ? urgentAlerts
-        : [
-            ClinicalAlert(
-              type: 'critical_vitals',
-              level: vitals.alertLevel,
-              detail: vitals.message,
-            )
-          ];
-
-    for (final alert in alerts.take(2)) {
+    for (final alert in urgentAlerts.take(2)) {
       final level = alert.level.toUpperCase();
       final key = '${alert.type}_$level';
       final now = DateTime.now();
@@ -375,26 +366,17 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
   }
 
   bool _isImmediateClinicalAlert(ClinicalAlert alert) {
-    final type = alert.type.toLowerCase();
-    final level = alert.level.toUpperCase();
-    final isFall = type.contains('fall');
-    final isDangerousHeart = type.contains('tachy') ||
-        type.contains('brady') ||
-        type.contains('afib') ||
-        type.contains('rhythm');
-
-    return isFall ||
-        level == 'CRITICAL' ||
-        (isDangerousHeart && (level == 'ALERT' || level == 'CRITICAL'));
+    return AlertNotificationPolicy.shouldPopup(
+      type: alert.type,
+      level: alert.level,
+    );
   }
 
   bool _bypassesQuietHours(ClinicalAlert alert) {
-    final type = alert.type.toLowerCase();
-    return alert.level.toUpperCase() == 'CRITICAL' ||
-        type.contains('fall') ||
-        type.contains('tachy') ||
-        type.contains('brady') ||
-        type.contains('afib');
+    return AlertNotificationPolicy.bypassesQuietHours(
+      type: alert.type,
+      level: alert.level,
+    );
   }
 
   bool _isNotificationAllowed(String level, {required bool force}) {

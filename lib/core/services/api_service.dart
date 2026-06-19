@@ -223,6 +223,46 @@ class ApiService {
     }
   }
 
+  /// GET /daily-report - full per-calendar-day statistical report (MongoDB).
+  /// [date] is YYYY-MM-DD.
+  Future<Map<String, dynamic>> getDailyReport({
+    required String date,
+    String patientId = 'polar_h10',
+  }) async {
+    try {
+      final response = await _dio.get(
+        '$_baseUrl/daily-report',
+        queryParameters: {
+          'date': date,
+          if (patientId.isNotEmpty) 'patient_id': patientId,
+        },
+        options: Options(receiveTimeout: const Duration(seconds: 20)),
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException('Cannot load daily report: ${e.message}');
+    }
+  }
+
+  /// GET /daily-report/available-days - calendar days that have data.
+  Future<List<dynamic>> getAvailableReportDays({
+    String patientId = 'polar_h10',
+  }) async {
+    try {
+      final response = await _dio.get(
+        '$_baseUrl/daily-report/available-days',
+        queryParameters: {if (patientId.isNotEmpty) 'patient_id': patientId},
+      );
+      final data = response.data;
+      if (data is Map && data['days'] is List) {
+        return data['days'] as List<dynamic>;
+      }
+      return [];
+    } on DioException catch (e) {
+      throw ApiException('Cannot load available report days: ${e.message}');
+    }
+  }
+
   Future<Map<String, dynamic>> getUserProfile(String userId) async {
     try {
       final response = await _dio.get('$_baseUrl/api/user/$userId');

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
@@ -25,6 +26,11 @@ class HealthReportScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text(AppStrings.healthReport),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month_outlined),
+            tooltip: 'Báo cáo theo ngày',
+            onPressed: () => context.push('/daily-report'),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.read(vitalsProvider.notifier).refresh(),

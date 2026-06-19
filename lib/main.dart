@@ -9,6 +9,7 @@ import 'core/services/notification_service.dart';
 import 'core/providers/vitals_provider.dart';
 import 'core/providers/user_provider.dart';
 import 'core/repositories/user_profile_repository.dart';
+import 'core/widgets/in_app_notification_host.dart';
 import 'router/app_router.dart';
 
 void main() async {
@@ -38,6 +39,7 @@ void main() async {
         // Dùng instance đã init() thay vì tạo mới
         storageServiceProvider.overrideWithValue(storageService),
         userProfileRepositoryProvider.overrideWithValue(userProfileRepo),
+        notificationServiceProvider.overrideWithValue(notificationService),
       ],
       child: ElderHealthApp(
         storageService: storageService,
@@ -66,6 +68,9 @@ class ElderHealthApp extends StatelessWidget {
       title: AppStrings.appName,
       debugShowCheckedModeBanner: false,
       routerConfig: router,
+      builder: (context, child) => InAppNotificationHost(
+        child: child ?? const SizedBox.shrink(),
+      ),
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
@@ -109,25 +114,39 @@ class ElderHealthApp extends StatelessWidget {
         indicatorColor: AppColors.primary.withValues(alpha: 0.12),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary);
+            return GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary);
           }
-          return GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary);
+          return GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary);
         }),
       ),
-      chipTheme: ChipThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
-      dividerTheme: const DividerThemeData(color: AppColors.divider, thickness: 1),
+      chipTheme: ChipThemeData(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+      dividerTheme:
+          const DividerThemeData(color: AppColors.divider, thickness: 1),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.backgroundLight,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle:
+              GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -151,7 +170,10 @@ class ElderHealthApp extends StatelessWidget {
         scrolledUnderElevation: 1,
         backgroundColor: AppColors.surfaceDark,
         foregroundColor: AppColors.textPrimaryDark,
-        titleTextStyle: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimaryDark),
+        titleTextStyle: GoogleFonts.inter(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimaryDark),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
@@ -166,24 +188,37 @@ class ElderHealthApp extends StatelessWidget {
         indicatorColor: AppColors.primary.withValues(alpha: 0.2),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryLight);
+            return GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLight);
           }
-          return GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondaryDark);
+          return GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondaryDark);
         }),
       ),
-      chipTheme: ChipThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+      chipTheme: ChipThemeData(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.cardDark,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle:
+              GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
     );

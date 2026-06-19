@@ -580,7 +580,7 @@ class _FriendlyStatusSection extends StatelessWidget {
                 _MeasuredChip(
                   icon: Icons.favorite,
                   label: 'Nhịp tim',
-                  value: '${vitals.hrBpm.toStringAsFixed(0)} BPM',
+                  value: vitals.hasHr ? '${vitals.hrText} BPM' : 'Chưa đo được',
                 ),
                 _MeasuredChip(
                   icon: Icons.monitor_heart_outlined,
@@ -976,80 +976,4 @@ Color _levelColor(String level) {
 
 String _levelText(String level) {
   return HealthDisplayMapper.levelLabel(level);
-}
-
-/// Card cho LF/HF Ratio
-class _LfHfCard extends StatelessWidget {
-  final double lfHfRatio;
-
-  const _LfHfCard({required this.lfHfRatio});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.waves,
-                    size: 18,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  AppStrings.lfHfRatio,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              lfHfRatio.toStringAsFixed(2),
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: _getColor(),
-                  ),
-            ),
-            Text(
-              _getDescription(),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textHint,
-                    fontSize: 11,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Color _getColor() {
-    if (lfHfRatio <= 0) return AppColors.textHint;
-    if (lfHfRatio < 0.5) return AppColors.calm;
-    if (lfHfRatio < 2.0) return AppColors.safe;
-    if (lfHfRatio < 4.0) return AppColors.watch;
-    return AppColors.alert;
-  }
-
-  String _getDescription() {
-    if (lfHfRatio <= 0) return '--';
-    if (lfHfRatio < 0.5) return 'Phó giao cảm ưu thế';
-    if (lfHfRatio < 2.0) return 'Cân bằng';
-    if (lfHfRatio < 4.0) return 'Giao cảm nhẹ';
-    return 'Giao cảm mạnh';
-  }
 }

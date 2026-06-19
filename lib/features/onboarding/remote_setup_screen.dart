@@ -20,6 +20,7 @@ class RemoteSetupScreen extends ConsumerStatefulWidget {
 
 class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
   final _accessCodeController = TextEditingController();
+  final _serverUrlController = TextEditingController();
   final _apiKeyController = TextEditingController();
   final _caregiverNameController = TextEditingController();
   final _targetNameController = TextEditingController();
@@ -29,11 +30,14 @@ class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
   void initState() {
     super.initState();
     _accessCodeController.addListener(_refreshCanContinue);
+    _serverUrlController.addListener(_refreshCanContinue);
     _apiKeyController.addListener(_refreshCanContinue);
     _caregiverNameController.addListener(_refreshCanContinue);
     _targetNameController.addListener(_refreshCanContinue);
     final storage = ref.read(storageServiceProvider);
     _accessCodeController.text = storage.pairingCode;
+    _serverUrlController.text =
+        storage.cloudUrl.isNotEmpty ? storage.cloudUrl : 'elderlycare.local:8000';
     _apiKeyController.text = storage.apiKey;
     _caregiverNameController.text = storage.caregiverName;
     _targetNameController.text = storage.monitorTargetName;
@@ -42,10 +46,12 @@ class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
   @override
   void dispose() {
     _accessCodeController.removeListener(_refreshCanContinue);
+    _serverUrlController.removeListener(_refreshCanContinue);
     _apiKeyController.removeListener(_refreshCanContinue);
     _caregiverNameController.removeListener(_refreshCanContinue);
     _targetNameController.removeListener(_refreshCanContinue);
     _accessCodeController.dispose();
+    _serverUrlController.dispose();
     _apiKeyController.dispose();
     _caregiverNameController.dispose();
     _targetNameController.dispose();
@@ -86,7 +92,7 @@ class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Không cần nhập địa chỉ cloud. Raspberry gửi dữ liệu đã xử lý lên server hệ thống; bạn chỉ cần mã truy cập được cấp quyền.',
+                      'Nhập địa chỉ Raspberry/server để theo dõi. Nếu cùng mạng Wi-Fi với Raspberry, dùng elderlycare.local hoặc IP của Pi. Khi có cloud, nhập URL cloud đầy đủ.',
                       style: TextStyle(
                         fontSize: 13,
                         color: AppColors.primaryDark,
@@ -98,6 +104,18 @@ class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
               ),
             ),
             const SizedBox(height: 28),
+            TextField(
+              controller: _serverUrlController,
+              decoration: const InputDecoration(
+                labelText: 'Địa chỉ Pi / Server',
+                helperText:
+                    'elderlycare.local, IP LAN, host:port hoặc URL cloud đầy đủ',
+                prefixIcon: Icon(Icons.router_outlined),
+              ),
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: _accessCodeController,
               decoration: const InputDecoration(
@@ -179,6 +197,7 @@ class _RemoteSetupScreenState extends ConsumerState<RemoteSetupScreen> {
       );
 
       await storage.setPairingCode(code);
+      await storage.setCloudUrl(_serverUrlController.text.trim());
       await storage.setApiKey(_apiKeyController.text.trim());
       await storage.setUserId(caregiverUserId);
       await storage.setUserDisplayName(caregiverName);
