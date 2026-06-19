@@ -56,6 +56,21 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
     final report = reportAsync?.valueOrNull;
     final canExport = report != null && report.hasData;
 
+    // Navigation is driven by the days that actually have data — NOT the device
+    // clock. (Demo data can be timestamped in the future relative to "now",
+    // which previously made showDatePicker reject it and disabled prev/next.)
+    final selectableDates = available
+        .map((d) => DateTime.tryParse(d.date))
+        .whereType<DateTime>()
+        .map(_stripTime)
+        .toList()
+      ..sort();
+    final idx = selectableDates.indexOf(effective);
+    final prevDate = idx > 0 ? selectableDates[idx - 1] : null;
+    final nextDate = (idx >= 0 && idx < selectableDates.length - 1)
+        ? selectableDates[idx + 1]
+        : null;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Báo cáo theo ngày'),
@@ -81,22 +96,10 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
             _DateBar(
               date: effective,
               displayText: _displayText(effective),
-              availableDates: available
-                  .map((d) => DateTime.tryParse(d.date))
-                  .whereType<DateTime>()
-                  .map(_stripTime)
-                  .toSet(),
+              selectableDates: selectableDates,
+              prevDate: prevDate,
+              nextDate: nextDate,
               onPick: (d) => setState(() => _selected = _stripTime(d)),
-              onPrev: () => setState(() => _selected =
-                  _stripTime(effective.subtract(const Duration(days: 1)))),
-              onNext: () {
-                final next = _stripTime(effective.add(const Duration(days: 1)));
-                if (!next.isAfter(_stripTime(DateTime.now()))) {
-                  setState(() => _selected = next);
-                }
-              },
-              canGoNext:
-                  _stripTime(effective).isBefore(_stripTime(DateTime.now())),
             ),
           Expanded(
             child: _buildContent(availableAsync, reportAsync, dateStr),
@@ -163,21 +166,40 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
 class _DateBar extends StatelessWidget {
   final DateTime date;
   final String displayText;
-  final Set<DateTime> availableDates;
+  final List<DateTime> selectableDates; // ascending, days that have data
+  final DateTime? prevDate;
+  final DateTime? nextDate;
   final ValueChanged<DateTime> onPick;
-  final VoidCallback onPrev;
-  final VoidCallback onNext;
-  final bool canGoNext;
 
   const _DateBar({
     required this.date,
     required this.displayText,
-    required this.availableDates,
+    required this.selectableDates,
+    required this.prevDate,
+    required this.nextDate,
     required this.onPick,
-    required this.onPrev,
-    required this.onNext,
-    required this.canGoNext,
   });
+
+  DateTime _strip(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  Future<void> _openPicker(BuildContext context) async {
+    if (selectableDates.isEmpty) return;
+    final first = selectableDates.first;
+    final last = selectableDates.last;
+    // initialDate must be within [first, last] AND pass the predicate.
+    final init = date.isBefore(first)
+        ? first
+        : (date.isAfter(last) ? last : date);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: init,
+      firstDate: first,
+      lastDate: last,
+      helpText: 'Chọn ngày có dữ liệu',
+      selectableDayPredicate: (d) => selectableDates.contains(_strip(d)),
+    );
+    if (picked != null) onPick(picked);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -190,26 +212,14 @@ class _DateBar extends StatelessWidget {
           children: [
             IconButton(
               icon: const Icon(Icons.chevron_left),
-              onPressed: onPrev,
-              tooltip: 'Ngày trước',
+              onPressed:
+                  prevDate == null ? null : () => onPick(prevDate!),
+              tooltip: 'Ngày có dữ liệu trước đó',
             ),
             Expanded(
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: date,
-                    firstDate: DateTime(2025, 1, 1),
-                    lastDate: DateTime.now(),
-                    helpText: 'Chọn ngày xem báo cáo',
-                    selectableDayPredicate: availableDates.isEmpty
-                        ? null
-                        : (d) => availableDates
-                            .contains(DateTime(d.year, d.month, d.day)),
-                  );
-                  if (picked != null) onPick(picked);
-                },
+                onTap: () => _openPicker(context),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Row(
@@ -235,8 +245,9 @@ class _DateBar extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right),
-              onPressed: canGoNext ? onNext : null,
-              tooltip: 'Ngày sau',
+              onPressed:
+                  nextDate == null ? null : () => onPick(nextDate!),
+              tooltip: 'Ngày có dữ liệu kế tiếp',
             ),
           ],
         ),
