@@ -2,18 +2,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/daily_report_model.dart';
 import 'vitals_provider.dart';
 
-/// Effective patient id for reports: caregiver's monitored target, else the
-/// live vitals patient, else the wearer's device code, else the default.
+/// Backend patient id to query the cloud (MongoDB) report archive for.
+///
+/// Every archived window is stored under the *collector's* patient id. The
+/// Polar collector currently hardwires `polar_h10` (see backend
+/// `src/api/pipeline.py`), so the only values that match archived data are that
+/// id or the one carried by the live vitals stream. The onboarding device /
+/// monitor codes must NOT be used here: `StorageService.setDeviceCode` and
+/// `setMonitorTargetId` uppercase the input (e.g. `POLAR_H10`, `EC-001`), so
+/// they never match the lowercase backend id and the report comes back empty.
 final reportPatientIdProvider = Provider<String>((ref) {
-  final storage = ref.watch(storageServiceProvider);
-  if (storage.isCaregiver && storage.monitorTargetId.isNotEmpty) {
-    return storage.monitorTargetId;
-  }
   final live = ref.watch(vitalsProvider).currentVitals?.patientId;
   if (live != null && live.isNotEmpty) return live;
-  if (storage.isWearer && storage.deviceCode.isNotEmpty) {
-    return storage.deviceCode;
-  }
   return 'polar_h10';
 });
 
