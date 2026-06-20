@@ -8,6 +8,7 @@ import '../features/alerts/alert_center_screen.dart';
 import '../features/history/history_screen.dart';
 import '../features/report/health_report_screen.dart';
 import '../features/reports/daily_report_screen.dart';
+import '../features/reports/period_report_screen.dart';
 import '../features/profile/user_profile_screen.dart';
 import '../features/settings/settings_screen.dart';
 
@@ -142,6 +143,11 @@ GoRouter createAppRouter({required bool onboardingCompleted}) {
       GoRoute(
         path: '/daily-report',
         builder: (context, state) => const DailyReportScreen(),
+      ),
+      // Weekly/monthly statistical report (full-screen, opened from the Report tab)
+      GoRoute(
+        path: '/period-report',
+        builder: (context, state) => const PeriodReportScreen(),
       ),
     ],
   );

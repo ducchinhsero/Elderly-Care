@@ -244,6 +244,29 @@ class ApiService {
     }
   }
 
+  /// GET /period-report - weekly/monthly statistical report (MongoDB).
+  /// [period] is 'week' or 'month'; [end] is an optional YYYY-MM-DD end date.
+  Future<Map<String, dynamic>> getPeriodReport({
+    String period = 'week',
+    String patientId = 'polar_h10',
+    String? end,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '$_baseUrl/period-report',
+        queryParameters: {
+          'period': period,
+          if (patientId.isNotEmpty) 'patient_id': patientId,
+          if (end != null && end.isNotEmpty) 'end': end,
+        },
+        options: Options(receiveTimeout: const Duration(seconds: 20)),
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException('Cannot load period report: ${e.message}');
+    }
+  }
+
   /// GET /daily-report/available-days - calendar days that have data.
   Future<List<dynamic>> getAvailableReportDays({
     String patientId = 'polar_h10',
