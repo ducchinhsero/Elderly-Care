@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/history_model.dart';
 import '../services/api_service.dart';
 import '../services/mock_data_service.dart';
-import '../services/storage_service.dart';
 import 'vitals_provider.dart';
 
 /// State cho history data
@@ -37,13 +36,11 @@ class HistoryState {
 /// Notifier cho history
 class HistoryNotifier extends StateNotifier<HistoryState> {
   final ApiService _apiService;
-  final StorageService _storageService;
   final MockDataService _mockDataService;
   final bool _isDemoMode;
 
   HistoryNotifier(
     this._apiService,
-    this._storageService,
     this._mockDataService, {
     required bool isDemoMode,
   })  : _isDemoMode = isDemoMode,
@@ -70,10 +67,9 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
           'data': points,
         };
       } else {
-        data = await _apiService.getHistory(
-          hours: h,
-          patientId: _effectivePatientId,
-        );
+        // patient_id intentionally omitted: the backend is single-device and
+        // the onboarding codes (uppercased) never match its fixed id.
+        data = await _apiService.getHistory(hours: h);
       }
 
       final history = HistoryModel.fromJson(data);
@@ -97,17 +93,6 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
 
   /// Refresh
   Future<void> refresh() => loadHistory();
-
-  String? get _effectivePatientId {
-    if (_storageService.isCaregiver &&
-        _storageService.monitorTargetId.isNotEmpty) {
-      return _storageService.monitorTargetId;
-    }
-    if (_storageService.isWearer && _storageService.deviceCode.isNotEmpty) {
-      return _storageService.deviceCode;
-    }
-    return null;
-  }
 }
 
 // ─── Providers ───
@@ -121,7 +106,6 @@ final historyProvider =
 
   return HistoryNotifier(
     apiService,
-    storageService,
     mockDataService,
     isDemoMode: isDemo,
   );

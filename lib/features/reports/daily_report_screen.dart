@@ -124,7 +124,7 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
       }
       if (availableAsync.hasError) {
         return _ErrorState(
-          message: 'Không tải được danh sách ngày: ${availableAsync.error}',
+          message: '${availableAsync.error}',
           onRetry: () => ref.invalidate(availableReportDaysProvider),
         );
       }

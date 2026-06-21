@@ -376,10 +376,9 @@ class AlertsNotifier extends StateNotifier<AlertsState> {
   }
 
   String? get _effectivePatientId {
-    if (_storageService.isCaregiver &&
-        _storageService.monitorTargetId.isNotEmpty) {
-      return _storageService.monitorTargetId;
-    }
+    // The monitor/device codes are uppercased local ids that never match the
+    // collector's fixed backend id (`polar_h10`); using them returned empty
+    // alerts. Return null → unfiltered = the single device's data.
     return null;
   }
 

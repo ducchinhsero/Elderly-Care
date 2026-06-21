@@ -51,7 +51,7 @@ class ApiService {
       final data = response.data as Map<String, dynamic>;
       return data;
     } on DioException catch (e) {
-      throw ApiException('Cannot load latest vitals: ${e.message}');
+      throw ApiException.fromDio(e, 'tải dữ liệu mới nhất');
     }
   }
 
@@ -67,7 +67,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot load backend health: ${e.message}');
+      throw ApiException.fromDio(e, 'kiểm tra kết nối backend');
     }
   }
 
@@ -87,7 +87,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot start Polar collector: ${e.message}');
+      throw ApiException.fromDio(e, 'bật thu Polar');
     }
   }
 
@@ -108,7 +108,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot load history: ${e.message}');
+      throw ApiException.fromDio(e, 'tải lịch sử');
     }
   }
 
@@ -132,7 +132,7 @@ class ApiService {
       }
       return (response.data['events'] as List<dynamic>?) ?? [];
     } on DioException catch (e) {
-      throw ApiException('Cannot load alerts: ${e.message}');
+      throw ApiException.fromDio(e, 'tải danh sách cảnh báo');
     }
   }
 
@@ -157,7 +157,7 @@ class ApiService {
       }
       return (response.data['alerts'] as List<dynamic>?) ?? [];
     } on DioException catch (e) {
-      throw ApiException('Cannot load urgent alerts: ${e.message}');
+      throw ApiException.fromDio(e, 'tải cảnh báo khẩn');
     }
   }
 
@@ -176,7 +176,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot acknowledge alert: ${e.message}');
+      throw ApiException.fromDio(e, 'xác nhận cảnh báo');
     }
   }
 
@@ -197,7 +197,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot resolve alert: ${e.message}');
+      throw ApiException.fromDio(e, 'xử lý cảnh báo');
     }
   }
 
@@ -219,7 +219,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot load health report: ${e.message}');
+      throw ApiException.fromDio(e, 'tải báo cáo sức khỏe');
     }
   }
 
@@ -240,7 +240,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot load daily report: ${e.message}');
+      throw ApiException.fromDio(e, 'tải báo cáo theo ngày');
     }
   }
 
@@ -263,7 +263,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot load period report: ${e.message}');
+      throw ApiException.fromDio(e, 'tải báo cáo tuần/tháng');
     }
   }
 
@@ -282,7 +282,7 @@ class ApiService {
       }
       return [];
     } on DioException catch (e) {
-      throw ApiException('Cannot load available report days: ${e.message}');
+      throw ApiException.fromDio(e, 'tải danh sách ngày báo cáo');
     }
   }
 
@@ -291,7 +291,7 @@ class ApiService {
       final response = await _dio.get('$_baseUrl/api/user/$userId');
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot load user profile: ${e.message}');
+      throw ApiException.fromDio(e, 'tải hồ sơ người dùng');
     }
   }
 
@@ -301,7 +301,7 @@ class ApiService {
           await _dio.post('$_baseUrl/personal-baseline/update-progressive');
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot start calibration: ${e.message}');
+      throw ApiException.fromDio(e, 'bắt đầu hiệu chỉnh');
     }
   }
 
@@ -315,7 +315,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot load guided baseline status: ${e.message}');
+      throw ApiException.fromDio(e, 'tải trạng thái thiết lập baseline');
     }
   }
 
@@ -333,7 +333,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot start guided baseline: ${e.message}');
+      throw ApiException.fromDio(e, 'bắt đầu thiết lập baseline');
     }
   }
 
@@ -359,7 +359,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot complete guided segment: ${e.message}');
+      throw ApiException.fromDio(e, 'lưu bước thiết lập');
     }
   }
 
@@ -379,7 +379,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException('Cannot complete guided baseline day: ${e.message}');
+      throw ApiException.fromDio(e, 'hoàn tất ngày thiết lập');
     }
   }
 
@@ -403,6 +403,29 @@ class ApiException implements Exception {
   final String message;
   const ApiException(this.message);
 
+  /// Build a user-facing Vietnamese message from a Dio error.
+  ///
+  /// [action] is a short verb phrase describing what failed, e.g.
+  /// "tải báo cáo theo ngày". On Flutter Web a CORS-blocked 401 surfaces as a
+  /// `connectionError` with no response, so the connection message also hints
+  /// at the API key.
+  factory ApiException.fromDio(DioException e, String action) {
+    final status = e.response?.statusCode;
+    String detail;
+    if (status == 401 || status == 403) {
+      detail = 'sai hoặc thiếu khóa truy cập (API key). Kiểm tra lại trong Cài đặt.';
+    } else if (status == 404) {
+      detail =
+          'máy chủ chưa hỗ trợ chức năng này — có thể cần cập nhật hoặc khởi động lại backend.';
+    } else if (status != null && status >= 500) {
+      detail = 'máy chủ gặp lỗi nội bộ ($status).';
+    } else {
+      detail =
+          'không kết nối được máy chủ. Kiểm tra backend có đang chạy, đúng địa chỉ và đúng API key.';
+    }
+    return ApiException('Không thể $action: $detail');
+  }
+
   @override
-  String toString() => 'ApiException: $message';
+  String toString() => message;
 }

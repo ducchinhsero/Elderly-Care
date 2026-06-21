@@ -525,15 +525,12 @@ class VitalsNotifier extends StateNotifier<VitalsState> {
   }
 
   String? get _effectivePatientId {
-    if (_storageService.isCaregiver &&
-        _storageService.monitorTargetId.isNotEmpty) {
-      return _storageService.monitorTargetId;
-    }
+    // Prefer the id carried by the live stream — it is the backend's real
+    // patient id (the collector hardwires `polar_h10`). The onboarding
+    // device/monitor codes are uppercased local ids that never match, so fall
+    // back to null (unfiltered = the single device's data) instead.
     if (state.currentVitals?.patientId.isNotEmpty == true) {
       return state.currentVitals!.patientId;
-    }
-    if (_storageService.isWearer && _storageService.deviceCode.isNotEmpty) {
-      return _storageService.deviceCode;
     }
     return null;
   }
