@@ -11,31 +11,22 @@ class UserState {
   final UserProfile? profile;
   final bool isLoading;
   final String? error;
-  final bool isCalibrating;
-  final int calibrationSecondsRemaining;
 
   const UserState({
     this.profile,
     this.isLoading = false,
     this.error,
-    this.isCalibrating = false,
-    this.calibrationSecondsRemaining = 0,
   });
 
   UserState copyWith({
     UserProfile? profile,
     bool? isLoading,
     String? error,
-    bool? isCalibrating,
-    int? calibrationSecondsRemaining,
   }) {
     return UserState(
       profile: profile ?? this.profile,
       isLoading: isLoading ?? this.isLoading,
       error: error,
-      isCalibrating: isCalibrating ?? this.isCalibrating,
-      calibrationSecondsRemaining:
-          calibrationSecondsRemaining ?? this.calibrationSecondsRemaining,
     );
   }
 }
@@ -113,45 +104,6 @@ class UserNotifier extends StateNotifier<UserState> {
       final updated = state.profile!.copyWith(comorbidities: comorbidities);
       await _repository.saveProfile(updated);
       state = state.copyWith(profile: updated);
-    }
-  }
-
-  /// Bắt đầu calibration
-  Future<void> startCalibration() async {
-    state = state.copyWith(
-      isCalibrating: true,
-      calibrationSecondsRemaining: 30 * 60, // 30 phút
-    );
-
-    try {
-      await _apiService.startCalibration();
-      // Countdown sẽ được handle ở widget layer
-    } catch (e) {
-      state = state.copyWith(
-        isCalibrating: false,
-        error: 'Không thể bắt đầu calibration: $e',
-      );
-    }
-  }
-
-  /// Cập nhật countdown
-  void updateCalibrationCountdown(int secondsRemaining) {
-    if (secondsRemaining <= 0) {
-      // Calibration hoàn thành
-      if (state.profile != null) {
-        final updated = state.profile!.copyWith(
-          isCalibrated: true,
-          lastCalibratedAt: DateTime.now(),
-        );
-        _repository.saveProfile(updated);
-        state = state.copyWith(
-          profile: updated,
-          isCalibrating: false,
-          calibrationSecondsRemaining: 0,
-        );
-      }
-    } else {
-      state = state.copyWith(calibrationSecondsRemaining: secondsRemaining);
     }
   }
 

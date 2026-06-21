@@ -96,10 +96,6 @@ class HealthReportScreen extends ConsumerWidget {
                       const SizedBox(height: 16),
                       _FindingsCard(report: healthReport),
                       const SizedBox(height: 16),
-                      _PersonalBaselineCard(
-                        baseline: healthReport.personalBaseline,
-                      ),
-                      const SizedBox(height: 16),
                       _DisclaimerCard(disclaimer: healthReport.disclaimer),
                       const SizedBox(height: 16),
                     ],
@@ -334,66 +330,6 @@ class _FindingsCard extends StatelessWidget {
   }
 }
 
-class _PersonalBaselineCard extends StatelessWidget {
-  final PersonalBaseline baseline;
-
-  const _PersonalBaselineCard({required this.baseline});
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = baseline.comparisonRows;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionTitle(
-              icon: Icons.person_search_outlined,
-              title: 'So sánh với mức bình thường của riêng bạn',
-              subtitle:
-                  'Dùng để xem thay đổi so với mức thường thấy của người dùng.',
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    baseline.statusText,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                _BaselineStatusChip(status: baseline.status),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              baseline.progressText,
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 12),
-            if (rows.isEmpty)
-              Text(
-                'Chưa đủ dữ liệu so sánh. Hãy để thiết bị thu dữ liệu tốt trong các ngày đầu sử dụng.',
-                style: TextStyle(color: AppColors.textSecondary),
-              )
-            else
-              ...rows.map((row) => _BaselineRow(row: row)),
-            const SizedBox(height: 8),
-            Text(
-              'Không dùng mức bình thường riêng để kết luận bệnh; chỉ dùng để phát hiện thay đổi cần theo dõi.',
-              style: TextStyle(fontSize: 11, color: AppColors.textHint),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _FindingTile extends StatelessWidget {
   final HealthFinding finding;
 
@@ -580,70 +516,6 @@ class _SectionTitle extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _BaselineRow extends StatelessWidget {
-  final BaselineComparison row;
-
-  const _BaselineRow({required this.row});
-
-  @override
-  Widget build(BuildContext context) {
-    final value = row.value ?? 0;
-    final color = value.abs() < (row.isPercent ? 0.01 : 3.0)
-        ? AppColors.safe
-        : value > 0
-            ? AppColors.watchDark
-            : AppColors.primary;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(child: Text(row.label)),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                row.displayValue,
-                style: TextStyle(fontWeight: FontWeight.w800, color: color),
-              ),
-              Text(
-                row.interpretation,
-                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BaselineStatusChip extends StatelessWidget {
-  final String status;
-
-  const _BaselineStatusChip({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = status.toLowerCase() == 'ready'
-        ? AppColors.safe
-        : status.toLowerCase() == 'warming_up'
-            ? AppColors.watchDark
-            : AppColors.textSecondary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        status,
-        style:
-            TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color),
-      ),
     );
   }
 }

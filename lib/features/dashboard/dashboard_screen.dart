@@ -148,42 +148,6 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ),
 
-              if (vitalsState.healthReport != null &&
-                  vitalsState.healthReport!.personalBaseline.status != 'ready')
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.watchLight,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppColors.watch.withValues(alpha: 0.25),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.tune, color: AppColors.watchDark),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Mức bình thường của riêng bạn: ${vitalsState.healthReport!.personalBaseline.progressText}. Tiếp tục hướng dẫn trong Hồ sơ.',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.watchDark,
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => context.go('/profile'),
-                          child: const Text('Mo'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
               // ── Hero: HR Gauge ──
               HRGaugeWidget(
                 hrBpm: liveVitals?.hrBpm ?? 0,

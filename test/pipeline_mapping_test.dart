@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:elder_health_monitor/core/models/health_report_model.dart';
-import 'package:elder_health_monitor/core/models/guided_baseline_model.dart';
 import 'package:elder_health_monitor/core/models/vitals_model.dart';
 import 'package:elder_health_monitor/core/models/alert_model.dart';
 
@@ -221,44 +220,5 @@ void main() {
     expect(alert.isAcknowledged, isTrue);
     expect(alert.isRead, isTrue);
     expect(alert.ackStatus['caregiver_id'], 'caregiver_1');
-  });
-
-  test('GuidedBaselineStatus parses guided session payload', () {
-    final status = GuidedBaselineStatus.fromJson({
-      'patient_id': 'polar_h10',
-      'status': 'warming_up',
-      'day_count': 2,
-      'target_days': 7,
-      'progress_ratio': 0.2857,
-      'segment_plan': [
-        {
-          'segment_type': 'REST',
-          'expected_activity': 'REST',
-          'duration_seconds': 300,
-          'instruction': 'Sit quietly.'
-        }
-      ],
-      'latest_session': {
-        'session_id': 'session-1',
-        'status': 'in_progress',
-        'day_index': 3,
-        'target_days': 7,
-        'segments': [
-          {
-            'segment_type': 'REST',
-            'status': 'completed',
-            'duration_seconds': 300,
-            'valid_window_count': 4,
-            'rejected_window_count': 1,
-            'rejection_reasons': []
-          }
-        ],
-      },
-    });
-
-    expect(status.patientId, 'polar_h10');
-    expect(status.segmentPlan.first.title, 'Nghi yen');
-    expect(status.latestSession?.sessionId, 'session-1');
-    expect(status.latestSession?.segments.first.validWindowCount, 4);
   });
 }
