@@ -32,6 +32,14 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Force the Skia renderer instead of Impeller. The dev target is the
+             Android emulator, whose virtio/software GPU has no working Vulkan,
+             so Impeller falls back to OpenGLES and becomes near-frozen. Skia is
+             smooth on the emulator. Remove this meta-data to re-enable Impeller
+             for production builds on real devices. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

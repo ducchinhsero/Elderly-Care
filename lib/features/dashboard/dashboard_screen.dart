@@ -231,11 +231,9 @@ class DashboardScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      SizedBox(
+                      const SizedBox(
                         height: 160,
-                        child: MiniHrChartWidget(
-                          dataPoints: vitalsState.recentHistory,
-                        ),
+                        child: _MiniHrChartSection(),
                       ),
                     ],
                   ),
@@ -293,6 +291,23 @@ class DashboardScreen extends ConsumerWidget {
     return '${dt.hour.toString().padLeft(2, '0')}:'
         '${dt.minute.toString().padLeft(2, '0')}:'
         '${dt.second.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Chart cho 30 phút HR gần nhất. Tách thành ConsumerWidget `const` để khi
+/// dashboard rebuild theo các thay đổi khác (runtime status mỗi 15s, health
+/// report mỗi 30s, trạng thái kết nối...) thì LineChart không vẽ lại — chỉ
+/// rebuild khi `recentHistory` thực sự đổi.
+class _MiniHrChartSection extends ConsumerWidget {
+  const _MiniHrChartSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history =
+        ref.watch(vitalsProvider.select((s) => s.recentHistory));
+    return RepaintBoundary(
+      child: MiniHrChartWidget(dataPoints: history),
+    );
   }
 }
 

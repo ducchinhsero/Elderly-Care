@@ -43,7 +43,6 @@ dependencies:
   # Utils
   cupertino_icons: ^1.0.6
   json_annotation: ^4.8.1
-  google_fonts: ^6.1.0
   shimmer: ^3.0.0
   vibration: ^3.1.8
   audioplayers: ^5.2.1
@@ -76,3 +75,8 @@ flutter:
   assets:
     - assets/images/
     - assets/sounds/
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter.ttf
