@@ -572,6 +572,15 @@ List<ClinicalAlert> _clinicalAlertsFromJson(
     }
   }
 
+  final quality = latest['signal_quality'] as Map<String, dynamic>? ?? const {};
+  if (_str(quality['label']).toLowerCase() == 'poor') {
+    alerts.add(ClinicalAlert(
+      type: 'poor_signal',
+      level: 'WATCH',
+      detail: _str(latest['message'], fallback: 'Tín hiệu ECG kém. Vui lòng kiểm tra tiếp xúc dây đeo.'),
+    ));
+  }
+
   if (fall['strong_fall'] == true || fall['fall_candidate'] == true) {
     alerts.add(ClinicalAlert(
       type: 'fall_candidate',

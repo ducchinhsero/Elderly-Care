@@ -96,6 +96,49 @@ Chay Web:
 flutter run -d chrome
 ```
 
+## Chay demo bang Docker tren laptop
+
+Docker trong repo nay dung de dong goi ban **Flutter Web** va serve bang Nginx.
+Day la cach phu hop cho bao cao/thuyet trinh tren laptop: mo app trong browser tai
+`http://localhost:8080`, con backend FastAPI van chay rieng o `:8000`.
+
+Luu y quan trong: `ELDERLY_CARE_CLOUD_URL` la dia chi ma **browser tren laptop**
+truy cap duoc, khong phai dia chi noi bo trong container. Neu backend cung chay
+tren laptop, dung `http://127.0.0.1:8000`.
+
+Build image:
+
+```bash
+docker build ^
+  --build-arg ELDERLY_CARE_CLOUD_URL=http://127.0.0.1:8000 ^
+  -t elder-health-monitor:web .
+```
+
+Chay container:
+
+```bash
+docker run --rm -p 8080:80 elder-health-monitor:web
+```
+
+Mo app:
+
+```text
+http://localhost:8080
+```
+
+Neu backend khong chay tren laptop ma chay tren Raspberry cung mang, build voi IP
+Raspberry:
+
+```bash
+docker build ^
+  --build-arg ELDERLY_CARE_CLOUD_URL=http://<IP_RASPBERRY>:8000 ^
+  -t elder-health-monitor:web .
+```
+
+Neu backend bat `API_AUTH_ENABLED=1`, nhap API key trong onboarding/Settings cua app.
+Backend can cho phep CORS tu browser demo, vi du `ALLOWED_ORIGINS=*` trong moi truong
+demo LAN.
+
 Chay Android:
 
 ```bash

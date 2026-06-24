@@ -1,0 +1,16 @@
+.dart_tool/
+.git/
+.idea/
+.vscode/
+build/
+android/build/
+ios/Flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+windows/flutter/ephemeral/
+
+*.iml
+*.log
+build_log*.txt
+run_log.txt
+
