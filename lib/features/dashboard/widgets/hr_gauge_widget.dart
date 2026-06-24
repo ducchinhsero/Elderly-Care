@@ -9,6 +9,7 @@ class HRGaugeWidget extends StatelessWidget {
   final double confidence;
   final double hrMin;
   final double hrMax;
+  final bool deviceNotWorn;
   final VoidCallback? onTap;
 
   const HRGaugeWidget({
@@ -19,6 +20,7 @@ class HRGaugeWidget extends StatelessWidget {
     required this.confidence,
     required this.hrMin,
     required this.hrMax,
+    this.deviceNotWorn = false,
     this.onTap,
   });
 
@@ -29,9 +31,14 @@ class HRGaugeWidget extends StatelessWidget {
     final hr = hrBpm <= 0 ? null : hrBpm.round();
     final normalized = hrBpm <= 0 ? 0.0 : ((hrBpm - 40) / 120).clamp(0.0, 1.0);
     final hrAvg = ((hrMin + hrMax) / 2).round();
-    final statusLabel = hasLiveHr ? _levelText() : 'Chờ dữ liệu';
-    final conditionText =
-        hasLiveHr ? conditionNameVi : 'Chưa có dữ liệu ECG mới';
+    final statusLabel = hasLiveHr
+        ? _levelText()
+        : (deviceNotWorn ? 'Chưa đeo' : 'Chờ dữ liệu');
+    final conditionText = hasLiveHr
+        ? conditionNameVi
+        : (deviceNotWorn
+            ? 'Thiết bị chưa được đeo hoặc dây lỏng. Vui lòng đeo lại Polar H10.'
+            : 'Chưa có dữ liệu ECG mới');
 
     return Card(
       child: InkWell(

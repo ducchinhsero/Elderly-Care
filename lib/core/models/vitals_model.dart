@@ -376,6 +376,18 @@ class VitalsModel {
   /// HR text for display — "--" when the backend could not measure HR.
   String get hrText => hasHr ? hrBpm.toStringAsFixed(0) : '--';
 
+  /// True when the backend flagged the strap as removed / not in skin contact
+  /// (Polar sensor-contact lost). Distinct from a generic "waiting for data"
+  /// state so the UI can tell the user to put the device back on.
+  bool get isDeviceNotWorn {
+    if (hasHr) return false;
+    final haystack =
+        [message, ...signalQualityReasons].join(' ').toLowerCase();
+    return haystack.contains('sensor contact') ||
+        haystack.contains('not worn') ||
+        haystack.contains('chưa được đeo');
+  }
+
   /// Stress model is still filling its 5-minute rolling RR window.
   bool get stressIsWarmingUp =>
       stressLabel.toLowerCase() == 'unknown' &&

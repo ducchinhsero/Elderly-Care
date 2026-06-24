@@ -156,6 +156,7 @@ class DashboardScreen extends ConsumerWidget {
                 confidence: liveVitals?.signalQualityScore ?? 0.0,
                 hrMin: liveVitals == null ? 0 : liveVitals.hrBpm - 4,
                 hrMax: liveVitals == null ? 0 : liveVitals.hrBpm + 7,
+                deviceNotWorn: liveVitals?.isDeviceNotWorn ?? false,
               ),
               const SizedBox(height: 16),
 
