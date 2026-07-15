@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell(flutter emulators)",
-      "PowerShell(flutter emulators --launch Pixel_8)"
-    ]
-  }
-}

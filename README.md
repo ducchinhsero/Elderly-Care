@@ -1,253 +1,215 @@
-# Elder Health Monitor
+# Elder Health Monitor (Flutter Client App)
 
-Ung dung Flutter theo doi suc khoe nguoi cao tuoi tu Raspberry Pi/Edge AI backend. App hien tap trung vao khung on dinh cho demo Windows/Android/Web, hien thi thong tin theo ngon ngu de hieu va tach du lieu ky thuat vao phan rieng.
+Ứng dụng Flutter theo dõi sức khỏe người cao tuổi từ Raspberry Pi/Edge AI backend. Hỗ trợ chạy đa nền tảng: **Windows Desktop**, **Android Mobile** và **Web**. 
 
-## Kien truc hien tai
+Giao diện được tối ưu hóa cho người cao tuổi (với ngôn ngữ thân thiện, dễ hiểu, tránh thuật ngữ kỹ thuật phức tạp) và cung cấp bảng điều khiển chi tiết dành cho người chăm sóc/giám sát (Caregiver).
+
+---
+
+## 1. Kiến trúc Hệ thống & Luồng Dữ liệu
 
 ```mermaid
 flowchart LR
-  P["Polar H10 ECG/ACC"] --> R["Raspberry Pi Edge AI"]
+  P["Polar H10 ECG/ACC"] --> R["Raspberry Pi Edge AI Backend"]
   R --> S["SQLite local"]
-  R --> A["REST API + WebSocket :8000"]
-  R --> M["MQTT LAN"]
-  R --> C["Cloud/Webhook/MongoDB optional"]
-  A --> F["Flutter app"]
+  R --> A["REST API + WebSocket (:8000)"]
+  R --> M["MQTT LAN (Broker)"]
+  R --> C["Cloud/Webhook/MongoDB (Optional)"]
+  A --> F["Flutter App (Client)"]
   M --> F
   C --> F
 ```
 
-Backend chinh nam o repo `D:\DATN\elderly_care-amine\elderly_care-amine`. Raspberry thu tin hieu Polar H10, chay model tai cho, luu local va phat du lieu/canh bao qua REST, WebSocket, MQTT. MongoDB chi la kenh dong bo/luu tru, khong phai duong realtime duy nhat.
+* **Backend:** Là một kho lưu trữ riêng biệt (chạy FastAPI trên Raspberry Pi). Backend thực hiện thu thập dữ liệu điện tâm đồ (ECG) và gia tốc (ACC) từ đai đeo Polar H10, chạy các mô hình AI tại chỗ để phát hiện bất thường (ví dụ: Rung tâm nhĩ - AFib, Ngoại tâm thu - PVC/PAC, Té ngã), lưu trữ cơ sở dữ liệu SQLite cục bộ và phát thông tin qua các giao thức REST API, WebSocket và MQTT.
+* **Client (Repo này):** Nhận dữ liệu thời gian thực từ các giao thức trên để cập nhật giao diện Dashboard, phát cảnh báo khẩn cấp và hiển thị lịch sử sức khỏe.
 
-## Vai tro nguoi dung
+---
 
-- **Nguoi deo:** dung gateway noi bo Raspberry, mac dinh `elderlycare.local:8000` hoac IP Pi.
-- **Nguoi giam sat:** dung cloud/base URL duoc cau hinh trong build, uu tien WebSocket `/ws/alerts` va `/ws/vitals`, fallback HTTP polling.
+## 2. Cấu trúc Thư mục Mã nguồn (Flutter App)
 
-Thong tin onboarding nhu ten, tuoi, nguoi giam ho, ma thiet bi va ma truy cap duoc luu bang Hive trong local storage.
-
-## Tinh nang chinh
-
-- Dashboard "Tinh trang hien tai" voi ngon ngu pho thong cho nguoi cao tuoi.
-- Canh bao 4 muc: `On dinh`, `Can theo doi`, `Can kiem tra`, `Can ho tro ngay`.
-- Alert Center nhan canh bao tu `/alerts/realtime`, `/events`, WebSocket va co CTA xac nhan da kiem tra.
-- History va Health Summary lay du lieu tu backend.
-- Settings cau hinh Raspberry gateway, API key, demo mode, Polar manual start va phan "Du lieu ky thuat".
-- Man hinh thiet lap Wi-Fi Raspberry qua AP `ElderlyCare-Setup-XXXX` khi Pi den mang moi.
-
-## Backend/API app dang dung
-
-Endpoint chinh:
-
-- `GET /health`
-- `GET /latest-result`
-- `GET /history`
-- `GET /events`
-- `GET /alerts/realtime`
-- `POST /alerts/{event_id}/ack`
-- `POST /alerts/{event_id}/resolve`
-- `GET /health-report`
-- `POST /polar/start`
-- `GET /guided-baseline/status`
-- `POST /guided-baseline/start`
-- `POST /guided-baseline/segment/complete`
-- `POST /guided-baseline/complete-day`
-
-WebSocket:
-
-- `/ws/vitals`
-- `/ws/alerts`
-
-Wi-Fi provisioning portal:
-
-- `http://10.42.0.1/api/wifi/scan`
-- `http://10.42.0.1/api/wifi/connect`
-
-Headers:
-
-- `X-API-Key`: backend auth khi `API_AUTH_ENABLED=1`.
-- `X-Device-Code`: ma thiet bi cua nguoi deo, luu trong app.
-- `X-Access-Code`: ma truy cap cua caregiver, luu trong app.
-
-## Yeu cau cai dat
-
-- Flutter SDK `>=3.2.0 <4.0.0`
-- Dart SDK theo Flutter
-- Windows: Visual Studio Desktop Development with C++ neu build desktop
-- Android: Android SDK/emulator neu test mobile
-- Backend Raspberry/FastAPI neu test du lieu that
-
-## Chay app
-
-Tai dependencies:
-
-```bash
-flutter pub get
-```
-
-Chay Windows desktop:
-
-```bash
-flutter run -d windows
-```
-
-Chay Web:
-
-```bash
-flutter run -d chrome
-```
-
-## Chay demo bang Docker tren laptop
-
-Docker trong repo nay dung de dong goi ban **Flutter Web** va serve bang Nginx.
-Day la cach phu hop cho bao cao/thuyet trinh tren laptop: mo app trong browser tai
-`http://localhost:8080`, con backend FastAPI van chay rieng o `:8000`.
-
-Luu y quan trong: `ELDERLY_CARE_CLOUD_URL` la dia chi ma **browser tren laptop**
-truy cap duoc, khong phai dia chi noi bo trong container. Neu backend cung chay
-tren laptop, dung `http://127.0.0.1:8000`.
-
-Build image:
-
-```bash
-docker build ^
-  --build-arg ELDERLY_CARE_CLOUD_URL=http://127.0.0.1:8000 ^
-  -t elder-health-monitor:web .
-```
-
-Chay container:
-
-```bash
-docker run --rm -p 8080:80 elder-health-monitor:web
-```
-
-Mo app:
+Kiến trúc mã nguồn được tổ chức theo mô hình phân chia theo tính năng (Feature-first) kết hợp lớp lõi (Core) dùng chung:
 
 ```text
-http://localhost:8080
+lib/
+├── core/                  # Các thành phần dùng chung toàn bộ ứng dụng
+│   ├── constants/         # Định nghĩa Màu sắc, Chuỗi hiển thị, MQTT Topic
+│   ├── models/            # Lớp thực thể dữ liệu (Vitals, Alert, Report, Profile)
+│   ├── providers/         # Quản lý trạng thái ứng dụng (Provider State Management)
+│   ├── repositories/      # Quản lý lưu trữ dữ liệu cục bộ (Hive)
+│   ├── services/          # Các dịch vụ kết nối ngoại vi (API, WS, MQTT, Storage, Provisioning)
+│   ├── utils/             # Các lớp tiện ích (Mapping dữ liệu y tế, chính sách thông báo)
+│   └── widgets/           # Widget dùng chung toàn hệ thống
+├── features/              # Các mô-đun chức năng nghiệp vụ của ứng dụng
+│   ├── alerts/            # Alert Center (Danh sách cảnh báo, ACK/Resolve cảnh báo)
+│   ├── dashboard/         # Trang chính của Người đeo (Wearer) và Người giám sát (Caregiver)
+│   ├── history/           # Biểu đồ xu hướng nhịp tim (HR) và biến thiên nhịp tim (HRV)
+│   ├── onboarding/        # Màn hình cấu hình ban đầu, kết nối Gateway và Setup Wi-Fi Raspberry
+│   ├── profile/           # Thông tin người đeo, bệnh nền, thuốc uống & điều chỉnh ngưỡng sinh hiệu
+│   ├── report/            # Biển diễn báo cáo sức khỏe trực quan trên UI
+│   ├── reports/           # Logic tạo báo cáo PDF và lưu trữ báo cáo định kỳ
+│   └── settings/          # Cài đặt Gateway, API Key, Demo Mode, chuẩn đoán kỹ thuật nâng cao
+├── router/                # Cấu hình định tuyến màn hình ứng dụng (App Router)
+└── main.dart              # Điểm khởi chạy ứng dụng
 ```
 
-Neu backend khong chay tren laptop ma chay tren Raspberry cung mang, build voi IP
-Raspberry:
+---
+
+## 3. Vai trò Người dùng & Luồng Nghiệp vụ
+
+### A. Người đeo thiết bị (Wearer)
+* **Môi trường hoạt động:** Thường ở gần cổng kết nối Raspberry Pi trong mạng nội bộ (LAN).
+* **Kết nối mặc định:** Cấu hình gateway trỏ tới địa chỉ local của Pi (ví dụ: `http://elderlycare.local:8000` hoặc IP tĩnh của Pi trong mạng Wi-Fi).
+* **Thông tin lưu trữ:** Tên, tuổi, thông tin liên hệ khẩn cấp, mã thiết bị được lưu trữ an toàn trong Local Storage bằng **Hive**.
+
+### B. Người giám sát (Caregiver)
+* **Môi trường hoạt động:** Có thể ở cùng mạng LAN hoặc theo dõi từ xa (qua Cloud/VPN/Reverse Proxy).
+* **Luồng dữ liệu realtime:**
+  - Nhận cảnh báo nguy hiểm thời gian thực thông qua kết nối WebSocket `/ws/alerts`.
+  - Nhận chỉ số sinh hiệu thời gian thực qua WebSocket `/ws/vitals`.
+  - Có cơ chế dự phòng tự động chuyển sang cơ chế HTTP Polling định kỳ 10 giây nếu mất kết nối WebSocket.
+
+---
+
+## 4. Cơ chế Cấu hình & Ánh xạ Cảnh báo từ AI Backend
+
+Để tạo trải nghiệm thân thiện với người dùng lớn tuổi, ứng dụng thực hiện chuyển đổi các thuật ngữ y học phức tạp từ AI backend thành các thuật ngữ đời thường dễ hiểu:
+
+* **Từ viết tắt y khoa:**
+  - `AFib` (Rung tâm nhĩ) $\rightarrow$ **Dấu hiệu nhịp tim không đều**.
+  - `PVC/PAC` (Ngoại tâm thu) $\rightarrow$ **Nhịp đập đến sớm**.
+  - `RMSSD / HRV` (Biến thiên nhịp tim) $\rightarrow$ **Mức độ phục hồi / Căng thẳng cơ thể**.
+  - `Baseline` $\rightarrow$ **Mức bình thường của riêng bạn**.
+
+* **Phân cấp cảnh báo (4 mức độ):**
+
+| Backend Level | Trạng thái hiển thị trên UI | Ý nghĩa & Hành động tương ứng |
+|---|---|---|
+| `SAFE` / `normal` | **Ổn định** | Sinh hiệu trong ngưỡng an toàn bình thường. |
+| `WATCH` / `medium` | **Cần theo dõi** | Sinh hiệu hơi lệch nhẹ, cần chú ý nghỉ ngơi. |
+| `ALERT` / `high` | **Cần kiểm tra** | Có bất thường rõ rệt, cần người nhà kiểm tra trực tiếp. |
+| `CRITICAL` / `critical` | **Cần hỗ trợ ngay** | Té ngã nghiêm trọng hoặc nhịp tim cực đoan $\rightarrow$ Hỗ trợ khẩn cấp. |
+
+* **Xử lý Cảnh báo khẩn cấp:**
+  - Mọi cảnh báo khẩn cấp chưa được xử lý sẽ nhảy Popup trên màn hình của Người giám sát.
+  - Người giám sát sau khi kiểm tra tình hình người cao tuổi cần nhấn nút xác nhận **Đã kiểm tra** (`POST /alerts/{event_id}/ack`) hoặc **Đã xử lý** (`POST /alerts/{event_id}/resolve`) để tắt trạng thái nhắc nhở lặp đi lặp lại từ hệ thống.
+
+---
+
+## 5. Danh sách Endpoints API App đang sử dụng
+
+### REST API
+* `GET /health` - Kiểm tra trạng thái hoạt động của Backend.
+* `GET /latest-result` - Lấy sinh hiệu và phân tích mới nhất của người đeo.
+* `GET /history` - Lấy lịch sử nhịp tim để vẽ biểu đồ.
+* `GET /events` - Lấy toàn bộ dòng thời gian (timeline) sự kiện cảnh báo.
+* `GET /alerts/realtime` - Lấy danh sách các cảnh báo khẩn cấp đang diễn ra (chưa ACK).
+* `POST /alerts/{event_id}/ack` - Người giám sát xác nhận đã kiểm tra sự kiện cảnh báo.
+* `POST /alerts/{event_id}/resolve` - Người giám sát đánh dấu sự kiện đã được giải quyết xong.
+* `GET /health-report` - Lấy dữ liệu tổng hợp phục vụ báo cáo sức khỏe định kỳ.
+* `POST /polar/start` - Gửi lệnh bắt đầu thu dữ liệu từ cảm biến Polar H10 thủ công.
+* `GET /guided-baseline/status` - Lấy trạng thái quá trình đo baseline.
+* `POST /guided-baseline/start` - Bắt đầu quy trình đo baseline cho người dùng mới.
+
+### WebSockets
+* `/ws/vitals` - Stream dữ liệu nhịp tim và sinh hiệu thời gian thực.
+* `/ws/alerts` - Stream cảnh báo bất thường khẩn cấp thời gian thực.
+
+### Thiết lập Wi-Fi cho Raspberry Pi (Provisioning Portal)
+Khi Raspberry Pi hoạt động ở chế độ Access Point thiết lập (`ElderlyCare-Setup-XXXX`), ứng dụng sẽ kết nối và gửi cấu hình Wi-Fi nhà thông qua các endpoint:
+* `http://10.42.0.1/api/wifi/scan` - Quét danh sách Wi-Fi xung quanh Raspberry Pi.
+* `http://10.42.0.1/api/wifi/connect` - Gửi SSID và Password Wi-Fi để Raspberry kết nối vào mạng nhà.
+
+### Headers Xác thực & Định danh
+* `X-API-Key`: Khóa API dùng để xác thực quyền truy cập khi backend bật chế độ bảo mật (`API_AUTH_ENABLED=1`).
+* `X-Device-Code`: Mã định danh duy nhất của thiết bị Polar/Người đeo.
+* `X-Access-Code`: Mã truy cập phân quyền dành riêng cho người giám sát.
+
+---
+
+## 6. Hướng dẫn Cài đặt & Chạy ứng dụng
+
+### Yêu cầu hệ thống
+* **Flutter SDK:** `>=3.2.0 <4.0.0`
+* **Windows Build:** Đã cài đặt **Visual Studio Desktop Development with C++** (nếu muốn build ứng dụng chạy trực tiếp trên Windows).
+* **Android Build:** Cài đặt **Android SDK & Emulator** (nếu muốn build ứng dụng Mobile).
+
+### Các bước cài đặt và khởi chạy
+
+1. **Tải các gói thư viện phụ thuộc:**
+   ```bash
+   flutter pub get
+   ```
+
+2. **Chạy ứng dụng trên môi trường giả lập/thiết bị thật:**
+   * **Windows Desktop:**
+     ```bash
+     flutter run -d windows
+     ```
+   * **Web Browser:**
+     ```bash
+     flutter run -d chrome
+     ```
+   * **Android Mobile:**
+     ```bash
+     flutter run -d android
+     ```
+
+---
+
+## 7. Đóng gói Demo chạy Web bằng Docker
+
+Ứng dụng cung cấp cấu hình Docker để đóng gói phiên bản Web chạy qua máy chủ Web Nginx gọn nhẹ. Rất phù hợp khi cần triển khai bản demo nhanh trên máy tính cá nhân.
+
+* **Lưu ý quan trọng:** Địa chỉ `ELDERLY_CARE_CLOUD_URL` lúc build phải là địa chỉ mà trình duyệt máy tính có thể truy cập được. Nếu backend FastAPI cũng chạy trên cùng máy tính, hãy cấu hình IP localhost: `http://127.0.0.1:8000`.
+
+1. **Build Docker Image:**
+   ```bash
+   docker build ^
+     --build-arg ELDERLY_CARE_CLOUD_URL=http://127.0.0.1:8000 ^
+     -t elder-health-monitor:web .
+   ```
+
+2. **Khởi chạy Docker Container:**
+   ```bash
+   docker run --rm -p 8080:80 elder-health-monitor:web
+   ```
+
+3. **Truy cập ứng dụng:**
+   Mở trình duyệt bất kỳ tại địa chỉ: `http://localhost:8080`
+
+---
+
+## 8. Chế độ Demo không cần Backend (Demo Mode)
+
+Trong màn hình **Cài đặt** (Settings), người dùng có thể kích hoạt **Demo Mode**. 
+* Khi bật chế độ này, ứng dụng sẽ tự động ngắt kết nối với backend vật lý và tự động sinh dữ liệu sinh hiệu giả lập để kiểm tra và thuyết trình nhanh giao diện người dùng mà không cần đai đeo Polar hay Raspberry Pi hoạt động.
+* *Lưu ý:* Vô hiệu hóa chế độ Demo này khi tiến hành kiểm thử thực tế với cảm biến thật.
+
+---
+
+## 9. Hướng dẫn Kiểm thử (Testing)
+
+Chạy bộ công cụ kiểm thử tự động được tích hợp sẵn:
 
 ```bash
-docker build ^
-  --build-arg ELDERLY_CARE_CLOUD_URL=http://<IP_RASPBERRY>:8000 ^
-  -t elder-health-monitor:web .
-```
-
-Neu backend bat `API_AUTH_ENABLED=1`, nhap API key trong onboarding/Settings cua app.
-Backend can cho phep CORS tu browser demo, vi du `ALLOWED_ORIGINS=*` trong moi truong
-demo LAN.
-
-Chay Android:
-
-```bash
-flutter run -d android
-```
-
-Build Windows debug:
-
-```bash
-flutter build windows --debug
-```
-
-## Cau hinh ket noi Raspberry
-
-Trong app vao **Cai dat**:
-
-1. Nguoi deo nhap dia chi Raspberry: `elderlycare.local`, `10.x.x.x`, hoac `http://10.x.x.x:8000`.
-2. Neu backend bat auth, nhap API key trung voi `.env` backend.
-3. Bam kiem tra ket noi qua `/health`.
-4. Neu Raspberry chua vao Wi-Fi nha, dung man **Thiet lap Wi-Fi Raspberry**, ket noi vao AP `ElderlyCare-Setup-XXXX`, nhap Wi-Fi nha va quay lai mang nha.
-
-Luu y: `0.0.0.0` chi la dia chi bind server, khong phai dia chi de app/browser truy cap. Dung `127.0.0.1` chi khi app chay tren chinh may backend. May khac phai dung IP Raspberry hoac `elderlycare.local`.
-
-## Checklist cai app khi lap tai nha
-
-Dung checklist nay sau khi Raspberry da duoc cap nguon va backend da cai theo README backend.
-
-### 1. Ket noi app voi Raspberry
-
-1. Mo app va chon dung vai tro.
-2. Neu app dung cho nguoi deo/cung mang nha, vao **Cai dat** va nhap gateway:
-   - `elderlycare.local`, hoac
-   - IP Raspberry, vi du `10.10.56.149`, hoac
-   - URL day du, vi du `http://10.10.56.149:8000`.
-3. Neu backend bat `API_AUTH_ENABLED=1`, nhap API key trung voi `.env` backend.
-4. Bam **Kiem tra /health**. Ket noi dung khi app bao backend san sang va khong hien mat ket noi.
-5. Quay ve Dashboard, doi 10-20 giay de nhan `/latest-result`.
-
-Khong nhap `0.0.0.0` vao app. Dia chi nay chi de backend lang nghe tren moi interface, khong phai dia chi client truy cap.
-
-### 2. Xac nhan dang thu du lieu that
-
-Dashboard can hien cac dau hieu:
-
-- Trang thai Raspberry/Polar dang hoat dong.
-- Nhip tim co gia tri moi.
-- Khong bat demo mode khi test du lieu that.
-- Neu Polar chua tu thu, dung nut **Bat thu Polar thu cong** trong Settings chi de debug; khi lap that, backend nen co `POLAR_AUTO_START=1`.
-
-Neu app bao mat ket noi:
-
-- Kiem tra laptop/dien thoai co cung Wi-Fi voi Raspberry khong.
-- Thu `http://elderlycare.local:8000/health` hoac `http://<IP_RASPBERRY>:8000/health` tren browser.
-- Neu backend bat auth, app phai co API key dung.
-- Neu `elderlycare.local` khong resolve, dung IP lay tu `hostname -I` tren Pi.
-
-### 3. Kiem tra canh bao
-
-- Cac canh bao nhe nhu nhip tim cao/thap mot cua so, tin hieu kem, PVC/PAC don le se nam trong Dashboard/Alert Center/History, khong popup khan.
-- Popup chi hien voi canh bao can kiem tra that su:
-  - te nga hoac nghi te nga;
-  - nhip tim cao keo dai khi nguoi dung it van dong;
-  - nhip tim thap keo dai khi nguoi dung it van dong;
-  - nhip tim nguy hiem khi nguoi dung bat dong;
-  - dau hieu nhip tim khong deu muc cao do backend danh dau urgent.
-- Alert Center lay canh bao khan tu `/alerts/realtime` va timeline day du tu `/events`.
-- Sau khi da kiem tra nguoi dung, bam CTA da kiem tra de ACK alert, tranh app nhac lai cung mot canh bao.
-
-### 4. Nguoi giam sat o xa
-
-Neu app nguoi giam sat khac mang voi Raspberry:
-
-- Khong dung IP LAN cua Pi neu khong co VPN/reverse proxy/cloud.
-- Can mot dia chi cloud/VPN bao mat tro ve backend.
-- Backend phai bat auth: `API_AUTH_ENABLED=1`, `API_KEY` du dai.
-- App caregiver uu tien WebSocket `/ws/alerts` va `/ws/vitals`; khi mat WebSocket se fallback HTTP polling.
-- MongoDB chi la kenh dong bo/luu tru, khong thay the realtime alert neu app khong co cloud API/WebSocket de doc.
-
-### 5. Tieu chi ban giao app
-
-- [ ] App luu duoc thong tin nguoi deo: ten, tuoi, nguoi giam ho, so dien thoai.
-- [ ] Settings co gateway/API key dung.
-- [ ] **Kiem tra /health** thanh cong.
-- [ ] Dashboard co nhip tim moi tu backend.
-- [ ] Alert Center doc duoc `/events`.
-- [ ] Canh bao urgent chua ACK xuat hien trong `/alerts/realtime`.
-- [ ] Demo mode tat khi thu du lieu that.
-
-## Demo mode
-
-`demo_mode` mac dinh la `false`. Khi bat trong Settings/local storage, app sinh mock data de test UI ma khong can backend. Khong dung demo mode cho test realtime/production.
-
-## Kiem thu
-
-```bash
+# Chạy toàn bộ Unit và Widget test
 flutter test
+
+# Kiểm tra phân tích tĩnh mã nguồn đảm bảo chuẩn cú pháp Dart
 flutter analyze --no-fatal-infos
+
+# Build thử phiên bản debug Windows
 flutter build windows --debug
 ```
 
-Smoke test thu cong:
+---
 
-- Mo app lan dau, chon vai tro va nhap thong tin co ban.
-- Khong co backend: app hien mat ket noi ro rang, khong crash.
-- Co Raspberry backend: Dashboard cap nhat `/latest-result`, Alert Center co `/alerts/realtime` va `/events`.
-- Caregiver reconnect: canh bao high/critical chua ack van hien lai.
-- Wi-Fi setup: portal `10.42.0.1` scan va gui cau hinh Wi-Fi.
+## 10. Checklist Bàn giao kỹ thuật (Handover Checklist)
 
-## Ghi chu production
+Trước khi bàn giao mã nguồn cho đội ngũ phát triển tiếp theo, hãy thực hiện kiểm tra các tiêu chí sau:
 
-- Web target khong nen dung raw TCP MQTT (`mqtt_client` voi socket) vi Flutter Web khong ho tro `SecurityContext` mac dinh. Web nen dung REST/WebSocket hoac MQTT-over-WebSocket neu backend/broker cau hinh rieng.
-- Cac tinh nang PDF, guided baseline va notification native dang duoc giu nhu tinh nang phu/advanced, khong phai luong chinh cua khung demo on dinh.
+- [ ] **Lưu thông tin cục bộ:** Đảm bảo Hive lưu trữ thành công các trường thông tin cá nhân của người đeo (Tên, Tuổi, Caregiver ID) và không bị mất sau khi tắt app.
+- [ ] **Xác thực kết nối Gateway:** Thử nghiệm thay đổi địa chỉ IP Gateway trong Settings và nhấn **Kiem tra /health** báo thành công (Backend phản hồi `200 OK`).
+- [ ] **Nhận tin nhắn Realtime:** Dashboard cập nhật chỉ số nhịp tim nhảy liên tục (WebSockets `/ws/vitals` đang chạy tốt hoặc Polling fallback hoạt động ổn định).
+- [ ] **Màn hình Alert Center:** Nhận đầy đủ danh sách sự kiện từ `/events` và có khả năng tương tác ACK để chuyển trạng thái cảnh báo khẩn cấp.
+- [ ] **Chế độ Demo hoạt động độc lập:** Khi ngắt mạng và bật Demo mode, giao diện giả lập chạy trơn tru không bị crash hoặc treo luồng xử lý.
